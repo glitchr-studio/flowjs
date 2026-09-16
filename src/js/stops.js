@@ -30,6 +30,11 @@
 // undo, a movement the reader started. With prefers-reduced-motion the glide
 // is a jump.
 //
+// Nor does a scroll the browser makes to bring a focused field into view: an
+// invalid form submission revealing its first empty field, or Tab. Heading up
+// from the text, that scroll was taken for the reader's and carried the page
+// on to the stop above - the form gone from the screen it had just asked for.
+//
 // Progress: with two stops or more, the scroller (the <html> element for the
 // page) carries three custom properties - --sticky-stop, the index of the stop
 // above the scroll; --sticky-progress, 0 at that stop and 1 at the next; and
@@ -67,6 +72,12 @@
 
     // The reader taking over ends a glide; the browser has already stopped it.
     var INTERRUPT = ['wheel', 'touchstart', 'keydown', 'mousedown'];
+
+    // ms after a focus change in which a scroll starting is the browser
+    // revealing the focused field, not the reader.
+    var REVEAL = 250;
+
+    function now() { return window.performance ? performance.now() : Date.now(); }
 
     function extend(target) {
         for (var i = 1; i < arguments.length; i++) {
@@ -114,17 +125,25 @@
         this.timer = null;
         this.glideTimer = null;
         this.frame = null;
+        this.focusedAt = -Infinity;
+        this.revealing = false;
 
         this.onScroll = this.onScroll.bind(this);
         this.onInterrupt = this.onInterrupt.bind(this);
+        this.onFocus = this.onFocus.bind(this);
         this.onResize = this.onResize.bind(this);
         this.settle = this.settle.bind(this);
         this.tick = this.tick.bind(this);
+
+        // focusin bubbles, so the scroller hears its own fields; the window
+        // does not, so the page's are heard on the document.
+        this.focusTarget = this.isWindow ? document : this.scroller;
 
         this.scroller.addEventListener('scroll', this.onScroll, { passive: true });
         for (var i = 0; i < INTERRUPT.length; i++) {
             this.scroller.addEventListener(INTERRUPT[i], this.onInterrupt, { passive: true });
         }
+        this.focusTarget.addEventListener('focusin', this.onFocus, true);
         window.addEventListener('resize', this.onResize);
 
         this.refresh();
@@ -135,6 +154,7 @@
         for (var i = 0; i < INTERRUPT.length; i++) {
             this.scroller.removeEventListener(INTERRUPT[i], this.onInterrupt);
         }
+        this.focusTarget.removeEventListener('focusin', this.onFocus, true);
         window.removeEventListener('resize', this.onResize);
         clearTimeout(this.timer);
         clearTimeout(this.glideTimer);
@@ -230,6 +250,12 @@
             this.gliding = false;
             return;
         }
+        // The browser bringing a focused field into view: it rests where the
+        // field is, wherever that falls between the stops.
+        if (this.revealing) {
+            this.revealing = false;
+            return;
+        }
         if (this.paused || api.paused) return;
 
         var stops = this.measure();
@@ -285,7 +311,10 @@
         clearTimeout(this.glideTimer);
 
         // The first event after a rest starts a new gesture.
-        if (this.timer === null && !this.gliding) this.start = this.last;
+        if (this.timer === null && !this.gliding) {
+            this.start = this.last;
+            this.revealing = now() - this.focusedAt < REVEAL;
+        }
         this.last = y;
 
         // Which way the READER is going, not our own glide.
@@ -299,6 +328,10 @@
 
     Stops.prototype.onInterrupt = function () {
         this.gliding = false;
+    };
+
+    Stops.prototype.onFocus = function () {
+        this.focusedAt = now();
     };
 
     Stops.prototype.onResize = function () {
