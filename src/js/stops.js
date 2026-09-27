@@ -19,7 +19,8 @@
 //
 // A band never reaches past halfway to the neighbouring stop, so every stop
 // stays reachable however the bands are set. Two stops at the same place are
-// one stop.
+// one stop. A stop past the end of the scroll (a footer shorter than the
+// screen) is at the end of the scroll.
 //
 // Nothing happens during the scroll. Acting at the first movement fights
 // trackpad momentum, which keeps pushing during and after the glide; and the
@@ -178,6 +179,13 @@
         return this.isWindow ? (window.scrollY || window.pageYOffset || 0) : this.scroller.scrollTop;
     };
 
+    /** The furthest the scroller can scroll. */
+    Stops.prototype.max = function () {
+        return Math.max(0, this.isWindow
+            ? document.documentElement.scrollHeight - window.innerHeight
+            : this.scroller.scrollHeight - this.scroller.clientHeight);
+    };
+
     /** The scroller's scroll-padding-top: where a stop should rest below its edge. */
     Stops.prototype.padding = function () {
         var value = parseFloat(getComputedStyle(this.root).scrollPaddingTop);
@@ -193,6 +201,7 @@
     Stops.prototype.measure = function () {
         var options = this.options;
         var elements = this.root.querySelectorAll(options.selector);
+        var max = this.max();
         var stops = [];
         var i;
 
@@ -201,7 +210,11 @@
             if (!el.getClientRects().length) continue; // display: none
             stops.push({
                 element: el,
-                top: Math.round(this.position(el)),
+                // A stop the scroll cannot bring to the top (a footer shorter
+                // than the screen) rests where the scroll ends. Taken as out
+                // of reach, it made every scroll up from the very bottom -
+                // Safari's bounce included - glide away to the stop above.
+                top: Math.min(Math.round(this.position(el)), max),
                 bandUp: Math.max(0, toPixels(el.dataset.stickyBandUp, el, options.bandUp)),
                 bandDown: Math.max(0, toPixels(el.dataset.stickyBandDown, el, options.bandDown))
             });
