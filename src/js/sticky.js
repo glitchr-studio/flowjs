@@ -1173,7 +1173,13 @@ $.fn.serializeObject = function () {
 
             var elAll = $(ids).filter(function() {
                 if(this === $(Settings.identifier)) return false;
-                return this.getBoundingClientRect().top < scrollPaddingTop;
+                // Reached where an anchor jump would land it: the scroller's
+                // scroll-padding-top plus the headline's own scroll-margin-top
+                // (a section that lands under a fixed header, a band lower
+                // than the rest). Without the margin, a headline landed on
+                // by its own link was not the current one yet.
+                var margin = parseFloat(getComputedStyle(this).scrollMarginTop) || 0;
+                return this.getBoundingClientRect().top - margin < scrollPaddingTop;
             }).toArray().sort(function (el1, el2) {
                 return el1.offsetTop > el2.offsetTop ? -1
                     : (el1.offsetTop < el2.offsetTop ?  1 : 0);

@@ -1,5 +1,20 @@
 # Sticky JS library
 
+## The address follows the reading
+
+With `replacehash` on (the default), the page's address carries the `#id` of
+the headline being read: `.sticky-headlines[id]`, any `[id]` inside a
+`.sticky-headlines`, or a `.sticky-magnet[id]` (`.sticky-headlines-skip` left
+out). A headline is being read once it has reached where its own link would
+land it - the scroller's `scroll-padding-top` plus the headline's
+`scroll-margin-top` - and until it has scrolled out of sight. At the top, with
+none reached, the address has no hash. The change is a `history.replaceState`:
+it adds nothing to the history.
+
+```html
+<section id="menus" class="sticky-headlines" style="scroll-margin-top: 4rem">…</section>
+```
+
 ## Scroll stops
 
 `src/js/stops.js` - places on the page a scroll settles on, once it has come
