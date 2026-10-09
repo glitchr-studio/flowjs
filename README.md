@@ -146,3 +146,7 @@ StickyStops.pause(); StickyStops.resume();  // while a script scrolls the page i
 ```
 
 `Sticky.stops` is the same object when `sticky.js` is loaded.
+
+## License
+
+MIT since 2026-10-10; earlier versions remain published under LGPL-3.0-or-later.
