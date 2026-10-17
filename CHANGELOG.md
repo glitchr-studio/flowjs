@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 - 2026-10-17
+
+- **stops** - the `ends` option (`false` by default, so nothing changes until
+  a site asks): with `keys`, an arrow shows a tall stop's two ends. Down, from
+  its top (or from anywhere inside it) to its end, its last screen, then on to
+  the next stop's top; up, from its end back to its top, and from the top of
+  the stop below to the end of a tall one before its top. Without it an arrow
+  goes from top to top, however tall the stop, and a section taller than the
+  screen had its bottom skipped by the keyboard. tests/stops-ends.html.
+
 ## 1.3.1 - 2026-10-16
 
 - **cookie** - the `ignore` option: the elements whose clicks are not on the

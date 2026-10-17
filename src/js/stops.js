@@ -92,7 +92,10 @@
 // the stop being read, then to the one before (up), however tall the stop:
 // a tall stop is read with the wheel, the finger or the page keys - a page
 // key moves a screen inside it, never past its
-// end or top. A key pressed during a key's glide goes on from where that glide
+// end or top. With `ends` (1.4), an arrow shows a tall stop's two ends: down,
+// to its end (its last screen) first, then on to the next stop's top; up, from
+// its end back to its top, and from a stop's top to the end of a tall one
+// above before its top. A key pressed during a key's glide goes on from where that glide
 // was going, so presses chain stop after stop; a key held down goes one stop
 // at a time, each glide finished first. For a page key, a neighbour farther than a screen and
 // a half away (past the last stop, before the first, a long way between two -
@@ -173,6 +176,7 @@
         smooth: true,    // glide, rather than jump, to a stop
         axis: 'y',       // 'x': the stops are met sideways, by their left edge (an element scroller)
         keys: false,     // the keyboard goes from stop to stop (see "Keys" above)
+        ends: false,     // with keys: an arrow rests at a tall stop's end (its last screen) before going on (see "Keys" above)
         end: false       // the end of the scroll is a stop too: from the last section, on to the very bottom (the footer)
     };
 
@@ -902,6 +906,16 @@
         // one before - a tall stop is not read line by line (the wheel, the
         // finger and the page keys read it). Past the last stop, the browser.
         if (kind === 'line') {
+            // `ends`: a tall stop's end is a stop of its own for the arrows - down,
+            // from anywhere above it in the stop; up, from the top of the stop below.
+            if (this.options.ends) {
+                for (i = 0; i < stops.length; i++) {
+                    stop = stops[i];
+                    if (stop.end - stop.top <= LINE) continue;
+                    if (direction > 0 && y >= stop.top - tolerance && y < stop.end - tolerance) return at(stop.end, stop.element);
+                    if (direction < 0 && stop.end < y - tolerance && (i === stops.length - 1 || stops[i + 1].top >= y - tolerance)) return at(stop.end, stop.element);
+                }
+            }
             if (direction > 0) {
                 for (i = 0; i < stops.length; i++) {
                     if (stops[i].top > y + tolerance) return at(stops[i].top, stops[i].element);
