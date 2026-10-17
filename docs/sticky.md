@@ -157,6 +157,11 @@ Gentler stops, for a page that should be discovered rather than led:
 - `end` (`false` by default): the end of the scroll is a stop too - from the
   last section a glide goes down to the very bottom (a footer), and one back
   up, however far: `reach` does not bind it.
+- `ends` (`false` by default, with `keys`; 1.4): an arrow shows a tall stop's
+  two ends - down, from its top (or from inside it) to its end, its last
+  screen, then on to the next stop's top; up, from its end back to its top,
+  and from the top of the stop below to the end of a tall one before its top.
+  Without it an arrow goes from top to top, however tall the stop.
 - `easing` (with a `duration`): the curve of the glide - a cubic Bezier as CSS
   writes it, `'cubic-bezier(.65, 0, .35, 1)'` by default (gathering speed,
   then slowing into the stop), its four numbers in an array, one of CSS's

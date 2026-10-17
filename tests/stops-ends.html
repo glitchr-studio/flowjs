@@ -1,0 +1,85 @@
+<!doctype html>
+<!--
+  StickyStops with `ends` (1.4): an arrow shows a tall stop's two ends. Down: from its top to its end
+  (its last screen), then to the next stop's top. Up: from its end back to its top, and from the top
+  of the stop below to the end of a tall one before its top. Without the option, the arrows go from
+  top to top as before. smooth: false, so that every glide is a jump the page can measure at once.
+  Opened by tests/run.mjs in a headless browser; the page writes its verdict in #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>stops ends</title>
+<style>
+    html { scroll-behavior: auto; }
+    body { margin: 0; }
+    section { height: 100vh; }
+    .tall { height: 250vh; }
+    #result { position: fixed; top: 0; left: 0; margin: 0; }
+</style>
+</head>
+<body>
+<section id="a" class="sticky-stop"></section>
+<section id="tall" class="sticky-stop tall"></section>
+<section id="b" class="sticky-stop"></section>
+<section id="last" class="sticky-stop tall"></section>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/stops.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var SETTLE = 40;
+        var top = function (id) { return Math.round(document.getElementById(id).getBoundingClientRect().top + window.scrollY); };
+        var y = function () { return Math.round(window.scrollY); };
+        var press = async function (key) { var event = H.key(key); await H.after(SETTLE * 3); return event; };
+
+        var stops = StickyStops.attach(window, { smooth: false, keys: true, ends: true, settle: SETTLE });
+        var endOf = function (id) { return stops.measure().filter(function (s) { return s.element.id === id; })[0].end; };
+        await H.frame();
+        var tallEnd = endOf('tall'), lastEnd = endOf('last');
+        H.check(tallEnd > top('tall') + window.innerHeight, 'the tall stop ends a screen and more below its top', tallEnd + ' vs ' + top('tall'));
+
+        // Down: a's top -> tall's top -> tall's end -> b's top -> last's top -> last's end.
+        var first = await press('ArrowDown');
+        H.check(first.defaultPrevented && H.near(y(), top('tall')), 'ArrowDown from a short stop goes to the next stop', y() + ' vs ' + top('tall'));
+        await press('ArrowDown');
+        H.check(H.near(y(), tallEnd), 'ArrowDown at a tall stop\'s top goes to its end', y() + ' vs ' + tallEnd);
+        await press('ArrowDown');
+        H.check(H.near(y(), top('b')), 'ArrowDown at its end goes to the next stop\'s top', y() + ' vs ' + top('b'));
+        await press('ArrowDown');
+        await press('ArrowDown');
+        H.check(H.near(y(), lastEnd), 'the last stop, tall, shows its end too', y() + ' vs ' + lastEnd);
+
+        // Up: last's end -> last's top -> b's top -> tall's end -> tall's top -> a's top.
+        await press('ArrowUp');
+        H.check(H.near(y(), top('last')), 'ArrowUp at a tall stop\'s end goes back to its top', y() + ' vs ' + top('last'));
+        await press('ArrowUp');
+        H.check(H.near(y(), top('b')), 'ArrowUp goes on to the stop above', y() + ' vs ' + top('b'));
+        await press('ArrowUp');
+        H.check(H.near(y(), tallEnd), 'ArrowUp from the stop below a tall one goes to its end first', y() + ' vs ' + tallEnd);
+        await press('ArrowUp');
+        H.check(H.near(y(), top('tall')), 'then to its top', y() + ' vs ' + top('tall'));
+        await press('ArrowUp');
+        H.check(H.near(y(), top('a')), 'then to the stop above', y() + ' vs ' + top('a'));
+
+        // Read halfway into the tall stop: down goes to its end, up to its top.
+        H.scroll(top('tall') + 300); await H.after(SETTLE * 3);
+        await press('ArrowDown');
+        H.check(H.near(y(), tallEnd), 'from inside a tall stop, ArrowDown goes to its end', y() + ' vs ' + tallEnd);
+        H.scroll(top('tall') + 300); await H.after(SETTLE * 3);
+        await press('ArrowUp');
+        H.check(H.near(y(), top('tall')), 'from inside a tall stop, ArrowUp goes to its top', y() + ' vs ' + top('tall'));
+
+        // Without `ends`: top to top, as before 1.4.
+        stops.options.ends = false;
+        await press('ArrowDown');
+        H.check(H.near(y(), top('b')), 'without ends, ArrowDown at a tall stop\'s top goes on to the next stop', y() + ' vs ' + top('b'));
+        await press('ArrowUp');
+        H.check(H.near(y(), top('tall')), 'without ends, ArrowUp goes to the top of the stop above', y() + ' vs ' + top('tall'));
+
+        H.done();
+    })();
+</script>
+</body>
+</html>
