@@ -87,7 +87,8 @@ scroll, `scrollsnap_keys` `false`: the arrows go from magnet to magnet),
 `StickyStops.defaults`: `selector` (`".sticky-stop"`), `settle` (160), `tolerance`
 (3), `reach` (`Infinity`), `duration` (0), `easing`, `bandUp`/`bandDown` (0),
 `up`/`down` (`true`: a scroll heading that way is taken to a stop), `progress` (`true`), `smooth` (`true`), `axis` (`"y"`), `keys` (`false`), `ends`
-(`false`: with `keys`, an arrow rests at a tall stop's end before going on), `end` (`false`). Full description in [docs/sticky.md](docs/sticky.md).
+(`false`: with `keys`, an arrow rests at a tall stop's end before going on), `screens`
+(`false`: with `keys`, arrows and page keys read a tall stop a whole screen at a time, top to end, then on), `end` (`false`). Full description in [docs/sticky.md](docs/sticky.md).
 
 **StickySortable** - `new StickySortable(container, {...})` or
 `$(container).stickySortable({...})`; defaults in `StickySortable.defaults`:

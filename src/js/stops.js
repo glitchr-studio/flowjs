@@ -95,7 +95,10 @@
 // end or top. With `ends` (1.4), an arrow shows a tall stop's two ends: down,
 // to its end (its last screen) first, then on to the next stop's top; up, from
 // its end back to its top, and from a stop's top to the end of a tall one
-// above before its top. A key pressed during a key's glide goes on from where that glide
+// above before its top. With `screens` (1.5), arrows and page keys read a tall
+// stop a whole screen at a time from its top to its end, exactly, then go on
+// to the next stop - and a step that would rest just short of a section's end
+// or of the next section goes on to it rather than moving a few pixels. A key pressed during a key's glide goes on from where that glide
 // was going, so presses chain stop after stop; a key held down goes one stop
 // at a time, each glide finished first. For a page key, a neighbour farther than a screen and
 // a half away (past the last stop, before the first, a long way between two -
@@ -177,6 +180,7 @@
         axis: 'y',       // 'x': the stops are met sideways, by their left edge (an element scroller)
         keys: false,     // the keyboard goes from stop to stop (see "Keys" above)
         ends: false,     // with keys: an arrow rests at a tall stop's end (its last screen) before going on (see "Keys" above)
+        screens: false,  // with keys: arrows and page keys read a tall stop a whole screen at a time, top to end, then on (see "Keys" above)
         end: false       // the end of the scroll is a stop too: from the last section, on to the very bottom (the footer)
     };
 
@@ -196,6 +200,12 @@
     // screen, what lies between is only seen in passing - a separator between
     // two sections; past this, it is content, and the browser scrolls to it.
     var NEAR = 1.5;
+
+    // With `screens`: what is left before a stop's end (or its top, going up)
+    // that a key does not stop for - this share of the screen, a line at the
+    // least. Less than that, the key goes on to the next stop: a step of a few
+    // pixels read as a key that did nothing.
+    var JOIN = 0.12;
 
     // The keys, per axis: [key, shift] -> [direction, kind].
     function keyMove(event, horizontal) {
@@ -901,6 +911,8 @@
             return y < last.top - tolerance ? at(last.top, last.element) : null;
         }
 
+        if (this.options.screens) return this.screened(stops, y, direction, screen, near, at);
+
         // An arrow goes from stop to stop, wherever it is pressed: down to the
         // next stop's top, up to the top of the one being read, then to the
         // one before - a tall stop is not read line by line (the wheel, the
@@ -971,6 +983,53 @@
             if (end < y - tolerance) return y - end <= near ? at(end, stops[i].element) : null;
         }
         return null;
+    };
+
+    /**
+     * `screens` (1.5): an arrow or a page key reads the stop it is in a whole
+     * screen at a time - its top, a screen further, ..., its end (its last
+     * screen), exactly -, then goes on to the next stop's top; up, the same
+     * back to its top, then to the end of the stop above. A step that would
+     * leave less than JOIN of a screen before that end (or top) goes there at
+     * once, and from less than that away the key goes on to the neighbour:
+     * never a rest a few pixels short of a section. Past a neighbour farther
+     * than NEAR screens, the browser scrolls, as for the other keys.
+     */
+    Stops.prototype.screened = function (stops, y, direction, screen, near, at) {
+        var tolerance = this.options.tolerance;
+        var join = Math.max(LINE, Math.round(screen * JOIN));
+        // A stop less than that taller than the screen has one rest, its top.
+        var endOf = function (one) { return one.end - one.top > join ? one.end : one.top; };
+        // The stop being read: the last whose top is at or above the scroll.
+        var i = -1;
+        for (var k = 0; k < stops.length; k++) if (stops[k].top <= y + tolerance) i = k;
+        var stop, end, left;
+        if (direction > 0) {
+            if (i >= 0) {
+                stop = stops[i];
+                end = endOf(stop);
+                left = end - y;
+                if (left > join) return at(left <= screen + join ? end : y + screen, stop.element);
+            }
+            var next = stops[i + 1];
+            if (!next) return null;
+            return next.top - y <= Math.max(near, screen + join) ? at(next.top, next.element) : null;
+        }
+        if (i < 0) return null;
+        stop = stops[i];
+        left = y - stop.top;
+        if (left > join) {
+            // Below a tall stop's end (in what follows it, a separator): its end first.
+            end = endOf(stop);
+            if (y - end > join && y - end <= screen + join) return at(end, stop.element);
+            return at(left <= screen + join ? stop.top : y - screen, stop.element);
+        }
+        var before = stops[i - 1];
+        if (!before) return null;
+        end = endOf(before);
+        // Its end, unless that is a step of nothing: then a screen up into it.
+        var target = y - end > join ? end : Math.max(before.top, y - screen);
+        return y - target <= Math.max(near, screen + join) ? at(target, before.element) : null;
     };
 
     Stops.prototype.onInterrupt = function () {

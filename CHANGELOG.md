@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0 - 2026-10-24
+
+- **stops** - the `screens` option (`false` by default, so nothing changes
+  until a site asks): with `keys`, arrows and page keys read a tall stop a
+  whole screen at a time, from its top to its end (its last screen) exactly,
+  then go on to the next stop's top, and back the same way up. A step that
+  would rest just short of a section's end or of the next section goes on to
+  it: with `ends` a tall stop's end could lie a few pixels from its top, or
+  from where the reader was, and a key moved the page by those pixels and
+  stopped there. tests/stops-screens.html.
+
 ## 1.4.0 - 2026-10-17
 
 - **stops** - the `ends` option (`false` by default, so nothing changes until
