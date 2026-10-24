@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.5.2 - 2026-10-24
+
+- **stops** - a stop barely taller than the screen has no end of its own: at
+  most a quarter of a screen taller (the new `shortEnd` option, a share of the
+  screen, `data-sticky-short-end` on a stop), it rests at its top only. A
+  scroll heading down that comes to rest past it goes on to the next stop -
+  inside its band below it glided back up to its end -, one heading up goes
+  to its top (unless `up` is off), and no key stops at its end: an arrow with
+  `ends` (it skipped only a stop at most a line taller), a page key, a key
+  with `screens` (whose quarter of a screen is the same threshold, one
+  helper). Its few extra pixels are still read freely. A taller stop keeps
+  its end as before. With `ends`, omniscient's home took a key, or a wheel's
+  rest, to stop 100-200px below a section's top before going on.
+  tests/stops-ends.html (a stop 150px taller, the keys and the wheel each
+  way; one 60% taller unchanged; the attribute).
+
 ## 1.5.1 - 2026-10-24
 
 - **stops** - `screens`: down, from less than a quarter of a screen before a

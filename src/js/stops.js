@@ -84,6 +84,15 @@
 // the last section, what is left - a footer - is one glide away, down to the
 // very bottom, and one glide back up; `reach` does not bind that glide.
 //
+// Short ends (the `shortEnd` option, 1.5.2: a share of the screen, a quarter
+// by default, a line at the least; data-sticky-short-end on a stop): a stop at
+// most that much taller than the screen rests at its top only. Its few extra
+// pixels are read freely, as any tall stop's, but its end is no place to
+// glide to: a scroll heading down that comes to rest past it goes on to the
+// next stop, one heading up goes to its top (unless `up` is off), and no key
+// stops there - an arrow with `ends`, a page key, a key with `screens`. A
+// stop taller than that keeps its end as a rest.
+//
 // Keys (the `keys` option, off by default): the keyboard goes from stop to
 // stop, with the same glide. On the page, ArrowDown, PageDown and Space go to
 // the next stop below, ArrowUp, PageUp and Shift+Space to the one above (for
@@ -181,6 +190,7 @@
         keys: false,     // the keyboard goes from stop to stop (see "Keys" above)
         ends: false,     // with keys: an arrow rests at a tall stop's end (its last screen) before going on (see "Keys" above)
         screens: false,  // with keys: arrows and page keys read a tall stop a whole screen at a time, top to end, then on (see "Keys" above)
+        shortEnd: 0.25,  // share of the screen: a stop at most this taller than the screen rests at its top only, never at its end (see "Short ends" above)
         end: false       // the end of the scroll is a stop too: from the last section, on to the very bottom (the footer)
     };
 
@@ -201,12 +211,19 @@
     // two sections; past this, it is content, and the browser scrolls to it.
     var NEAR = 1.5;
 
-    // With `screens`: what is left before a stop's end (or its top, going up)
-    // that a key does not stop for - this share of the screen, a line at the
-    // least. Less than that, the key goes on: down to the next stop, up to the
-    // stop's top - a short step before the section that comes read as a key
-    // that stopped for nothing.
-    var JOIN = 0.25;
+    // What a rest does not stop for (the `shortEnd` option, a share of the
+    // screen, a line at the least): a stop at most this taller than the screen
+    // has one rest, its top - its end is a few pixels of free reading, never a
+    // place the settle or a key glides to. And with `screens`, what is left
+    // before a stop's end (or its top, going up) that a key does not stop for.
+    // Less than that, the page goes on: down to the next stop, up to the
+    // stop's top - a short step before the section that comes read as a
+    // scroll that stopped for nothing.
+    function shortOf(screen, share) {
+        var value = Number(share);
+        if (!isFinite(value) || value < 0) value = 0.25;
+        return Math.max(LINE, Math.round(screen * value));
+    }
 
     // The keys, per axis: [key, shift] -> [direction, kind].
     function keyMove(event, horizontal) {
@@ -543,6 +560,7 @@
                 // Whether a reader heading up (down) is taken to it.
                 up: flag(el.dataset.stickyUp, options.up),
                 down: flag(el.dataset.stickyDown, options.down),
+                shortEnd: el.dataset.stickyShortEnd !== undefined ? el.dataset.stickyShortEnd : options.shortEnd,
                 // Kept for the check a kept measure is given at each frame (see progress).
                 margin: margin
             });
@@ -564,6 +582,13 @@
 
         // A tall stop's reading ends where the next one begins, at the latest.
         for (i = 0; i < unique.length - 1; i++) unique[i].end = Math.min(unique[i].end, unique[i + 1].top);
+
+        // Where its reading rests at the bottom: its end, or its top for a
+        // stop barely taller than the screen (`shortEnd`), read freely all the same.
+        var screen = viewport - (this.horizontal ? 0 : frame.padding);
+        for (i = 0; i < unique.length; i++) {
+            unique[i].rest = unique[i].end - unique[i].top > shortOf(screen, unique[i].shortEnd) ? unique[i].end : unique[i].top;
+        }
 
         // A band reaches at most halfway to the neighbouring stop, so both
         // stay reachable however the bands are set.
@@ -591,9 +616,9 @@
         return clamp(Math.round(this.place(stop.element.getBoundingClientRect(), frame, stop.margin)), 0, this.max_) === stop.top;
     };
 
-    /** A tall stop's last screen, as a place to glide to. */
+    /** A tall stop's last screen, as a place to glide to - its top for a stop barely taller than the screen. */
     function ending(stop) {
-        return stop.end === stop.top ? stop : { element: stop.element, top: stop.end, end: stop.end, up: stop.up, down: stop.down };
+        return stop.rest === stop.top ? stop : { element: stop.element, top: stop.rest, end: stop.rest, rest: stop.rest, up: stop.up, down: stop.down };
     }
 
     /** An on/off attribute ("false", "0", "off", "no": off; anything else: on), or the fallback without one. */
@@ -778,6 +803,8 @@
         // overshoot from above - goes back to the stop. Otherwise free.
         if (y > last.end) {
             var overshotDown = from < last.end - tolerance;
+            // A stop barely taller than the screen is not glided back up to from below heading down: its top is behind.
+            if (direction > 0 && last.rest === last.top && last.end > last.top) return;
             if (y < last.end + last.bandDown && (direction < 0 || overshotDown)) this.toward(ending(last), direction < 0 ? -1 : 1);
             return;
         }
@@ -789,7 +816,8 @@
             var lower = stops[i + 1];
             if (y <= upper.end || y >= lower.top) continue;
 
-            if (direction > 0) this.toward(y < upper.end + upper.bandDown ? ending(upper) : lower, 1);
+            // Heading down past a stop barely taller than the screen: on to the next one, never back to its top.
+            if (direction > 0) this.toward(y < upper.end + upper.bandDown && upper.rest === upper.end ? ending(upper) : lower, 1);
             else if (direction < 0) this.toward(y > lower.top - lower.bandUp ? lower : ending(upper), -1);
             return;
         }
@@ -924,7 +952,7 @@
             if (this.options.ends) {
                 for (i = 0; i < stops.length; i++) {
                     stop = stops[i];
-                    if (stop.end - stop.top <= LINE) continue;
+                    if (stop.rest === stop.top) continue;
                     if (direction > 0 && y >= stop.top - tolerance && y < stop.end - tolerance) return at(stop.end, stop.element);
                     if (direction < 0 && stop.end < y - tolerance && (i === stops.length - 1 || stops[i + 1].top >= y - tolerance)) return at(stop.end, stop.element);
                 }
@@ -943,14 +971,14 @@
 
         // Reading a tall stop: a page key reads it, a screen at a time,
         // up to its end (its top) - and only from there on to the next stop.
-        // A stop less than a line taller than the screen is not read: it took
+        // A stop at most `shortEnd` taller than the screen is not read: it took
         // two presses to leave, the first for a few pixels.
         for (i = 0; i < stops.length; i++) {
             stop = stops[i];
             if (stop.end <= stop.top || y < stop.top - tolerance || y > stop.end + tolerance) continue;
             var left = direction > 0 ? stop.end - y : y - stop.top;
             if (left <= tolerance) continue;
-            if (stop.end - stop.top <= LINE) {
+            if (stop.rest === stop.top) {
                 // On from its end (its top), as if there already.
                 y = direction > 0 ? stop.end : stop.top;
                 break;
@@ -980,7 +1008,7 @@
             return null;
         }
         for (i = stops.length - 1; i >= 0; i--) {
-            var end = stops[i].end;
+            var end = stops[i].rest;
             if (end < y - tolerance) return y - end <= near ? at(end, stops[i].element) : null;
         }
         return null;
@@ -991,7 +1019,7 @@
      * screen at a time - its top, a screen further, ..., its end (its last
      * screen), exactly -, then goes on to the next stop's top; up, the same
      * back to its top, then to the end of the stop above. Down, from less
-     * than JOIN of a screen before the end the key goes on to the next stop
+     * than `shortEnd` of a screen before the end the key goes on to the next stop
      * rather than to that end; up, a step that would rest less than that
      * under the stop's top goes to the top: never a short step to rest just
      * before a section. Past a neighbour farther than NEAR screens, the
@@ -999,9 +1027,9 @@
      */
     Stops.prototype.screened = function (stops, y, direction, screen, near, at) {
         var tolerance = this.options.tolerance;
-        var join = Math.max(LINE, Math.round(screen * JOIN));
-        // A stop less than that taller than the screen has one rest, its top.
-        var endOf = function (one) { return one.end - one.top > join ? one.end : one.top; };
+        var join = shortOf(screen, this.options.shortEnd);
+        // A stop at most `shortEnd` taller than the screen has one rest, its top.
+        var endOf = function (one) { return one.rest; };
         // The stop being read: the last whose top is at or above the scroll.
         var i = -1;
         for (var k = 0; k < stops.length; k++) if (stops[k].top <= y + tolerance) i = k;

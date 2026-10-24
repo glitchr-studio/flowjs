@@ -138,6 +138,12 @@ Once a scroll comes to rest - trackpad momentum included:
 A stop taller than the screen is read freely, from its top until its bottom
 meets the bottom of the screen; its band below counts from there, and coming
 back up from the next stop settles on its last screen, not its top.
+Unless it is barely taller than the screen: a stop at most a quarter of a
+screen taller (`shortEnd`, 1.5.2) rests at its top only. Its few extra pixels
+are read freely all the same, but a scroll heading down that comes to rest
+past it goes on to the next stop - even inside its band below -, one heading
+up goes to its top (with `up: false`, it rests where it is), and no key stops
+at its end.
 
 A band never reaches past halfway to the neighbouring stop. The glide is the
 browser's smooth scroll, which any wheel, touch, key or click interrupts, and
@@ -172,6 +178,12 @@ Gentler stops, for a page that should be discovered rather than led:
   before a section. A stop barely
   taller than the screen has its top alone. It takes the place of `ends` and
   of the page keys' own step (seven eighths of a screen) where it is set.
+- `shortEnd` (a share of the screen, `0.25` by default, a line at the least;
+  1.5.2): a stop at most that much taller than the screen has one rest, its
+  top - for a scroll at rest, for the arrows with `ends`, for the page keys
+  and for `screens` (whose "less than a quarter of a screen" it also sets).
+  `data-sticky-short-end` on a stop gives it a share of its own (`0` keeps
+  its end as a rest down to a line taller than the screen).
 - `easing` (with a `duration`): the curve of the glide - a cubic Bezier as CSS
   writes it, `'cubic-bezier(.65, 0, .35, 1)'` by default (gathering speed,
   then slowing into the stop), its four numbers in an array, one of CSS's
