@@ -3,7 +3,10 @@
   StickyStops with `ends` (1.4): an arrow shows a tall stop's two ends. Down: from its top to its end
   (its last screen), then to the next stop's top. Up: from its end back to its top, and from the top
   of the stop below to the end of a tall one before its top. Without the option, the arrows go from
-  top to top as before. smooth: false, so that every glide is a jump the page can measure at once.
+  top to top as before. A stop at most a quarter of a screen taller than the screen (`shortEnd`, 1.5.2)
+  has its top alone as a rest: neither the arrows nor a scroll coming to rest past it stop at its end,
+  read freely all the same; one 60% taller keeps its end. smooth: false, so that every glide is a jump
+  the page can measure at once.
   Opened by tests/run.mjs in a headless browser; the page writes its verdict in #result.
 -->
 <html>
@@ -14,6 +17,8 @@
     body { margin: 0; }
     section { height: 100vh; }
     .tall { height: 250vh; }
+    .short { height: calc(100vh + 150px); }
+    .sixty { height: 160vh; }
     #result { position: fixed; top: 0; left: 0; margin: 0; }
 </style>
 </head>
@@ -22,6 +27,9 @@
 <section id="tall" class="sticky-stop tall"></section>
 <section id="b" class="sticky-stop"></section>
 <section id="last" class="sticky-stop tall"></section>
+<section id="short" class="sticky-stop short" data-sticky-band-down="100"></section>
+<section id="sixty" class="sticky-stop sixty" data-sticky-band-down="100"></section>
+<section id="z" class="sticky-stop"></section>
 <pre id="result">pending</pre>
 <script src="harness.js"></script>
 <script src="../src/js/core.js"></script>
@@ -49,7 +57,7 @@
         H.check(H.near(y(), top('b')), 'ArrowDown at its end goes to the next stop\'s top', y() + ' vs ' + top('b'));
         await press('ArrowDown');
         await press('ArrowDown');
-        H.check(H.near(y(), lastEnd), 'the last stop, tall, shows its end too', y() + ' vs ' + lastEnd);
+        H.check(H.near(y(), lastEnd), 'the next tall stop shows its end too', y() + ' vs ' + lastEnd);
 
         // Up: last's end -> last's top -> b's top -> tall's end -> tall's top -> a's top.
         await press('ArrowUp');
@@ -77,6 +85,51 @@
         H.check(H.near(y(), top('b')), 'without ends, ArrowDown at a tall stop\'s top goes on to the next stop', y() + ' vs ' + top('b'));
         await press('ArrowUp');
         H.check(H.near(y(), top('tall')), 'without ends, ArrowUp goes to the top of the stop above', y() + ' vs ' + top('tall'));
+
+        // A stop 150px taller than the screen (`shortEnd`, a quarter of a screen by default): its top alone.
+        stops.options.ends = true;
+        var shortEnd = endOf('short'), sixtyEnd = endOf('sixty');
+        H.check(shortEnd - top('short') === 150, 'the short stop ends 150px below its top', shortEnd - top('short'));
+        H.check(stops.measure().filter(function (s) { return s.element.id === 'short'; })[0].rest === top('short'), 'its rest is its top');
+        H.scroll(top('short')); await H.after(SETTLE * 3);
+        await press('ArrowDown');
+        H.check(H.near(y(), top('sixty')), 'with ends, ArrowDown at a short stop\'s top goes on to the next stop, not to its end', y() + ' vs ' + top('sixty'));
+        await press('ArrowUp');
+        H.check(H.near(y(), top('short')), 'ArrowUp from the stop below goes to its top, not to its end', y() + ' vs ' + top('short'));
+        await press('PageDown');
+        H.check(H.near(y(), top('sixty')), 'PageDown at its top goes on to the next stop too', y() + ' vs ' + top('sixty'));
+
+        // The wheel: its extra pixels read freely; a rest past its end heading down goes on (inside its band below,
+        // which took it back to its end before), one heading up goes to its top.
+        H.scroll(top('short')); await H.after(SETTLE * 3);
+        H.scroll(top('short') + 80); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('short') + 80), 'a short stop is read freely', y() + ' vs ' + (top('short') + 80));
+        H.scroll(shortEnd + 40); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('sixty')), 'a rest heading down past a short stop\'s end, inside its band, goes on to the next stop', y() + ' vs ' + top('sixty'));
+        H.scroll(shortEnd + 40); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('short')), 'a rest heading up past its end goes to its top', y() + ' vs ' + top('short'));
+
+        // A stop 60% taller than the screen keeps its end, for the keys and for the wheel.
+        H.scroll(top('sixty')); await H.after(SETTLE * 3);
+        await press('ArrowDown');
+        H.check(H.near(y(), sixtyEnd), 'ArrowDown at the top of a stop 60% taller goes to its end', y() + ' vs ' + sixtyEnd);
+        await H.after(300); // past the key's own scroll (REVEAL), the reader's wheel
+        H.scroll(sixtyEnd - 100); await H.after(SETTLE * 3);
+        H.scroll(sixtyEnd + 40); await H.after(SETTLE * 3);
+        H.check(H.near(y(), sixtyEnd), 'a rest heading down inside its band settles back to its end', y() + ' vs ' + sixtyEnd);
+        H.key('ArrowUp'); await H.after(SETTLE * 3);
+        H.key('ArrowDown'); await H.after(SETTLE * 3);
+        await press('ArrowDown');
+        H.check(H.near(y(), top('z')), 'then on to the next stop', y() + ' vs ' + top('z'));
+        await press('ArrowUp');
+        H.check(H.near(y(), sixtyEnd), 'ArrowUp from the stop below goes to its end first', y() + ' vs ' + sixtyEnd);
+
+        // data-sticky-short-end on the stop: a share of its own (0.1: 150px is more, the end is a rest again).
+        document.getElementById('short').setAttribute('data-sticky-short-end', '0.1');
+        stops.dirty = true;
+        H.scroll(top('short')); await H.after(SETTLE * 3);
+        await press('ArrowDown');
+        H.check(H.near(y(), shortEnd), 'with data-sticky-short-end="0.1", ArrowDown goes to its end', y() + ' vs ' + shortEnd);
 
         H.done();
     })();
