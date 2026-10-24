@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.3 - 2026-10-25
+
+- **stops** - a stop barely taller than the screen (`shortEnd`) is a stop the
+  screen holds for the settle too: its band below counts from its top, and
+  so does the halfway bound of its neighbours' bands. A scroll heading down
+  that comes to rest past its end within that band glides back to its top;
+  further down, on to the next stop, within the `reach`. With 1.5.2 such a
+  rest went on to the next stop whatever the band, and with a `reach` that
+  stop was out of it: the page stayed between two sections, 78px past the end
+  of panoboutique's third section (31px taller than a screen, reach and bands
+  140px). Its extra pixels are still read freely. tests/stops-ends.html
+  (reach and bands 140px: 31px and 123px taller, back to its top inside its
+  band, staying past it with the next stop out of reach, on without a reach).
+
 ## 1.5.2 - 2026-10-24
 
 - **stops** - a stop barely taller than the screen has no end of its own: at
