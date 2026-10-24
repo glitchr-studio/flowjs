@@ -88,8 +88,10 @@
 // by default, a line at the least; data-sticky-short-end on a stop): a stop at
 // most that much taller than the screen rests at its top only. Its few extra
 // pixels are read freely, as any tall stop's, but its end is no place to
-// glide to: a scroll heading down that comes to rest past it goes on to the
-// next stop, one heading up goes to its top (unless `up` is off), and no key
+// glide to: its band below counts from its top (1.5.3), as for a stop the
+// screen holds - a scroll heading down that comes to rest past its end within
+// that band goes back to its top, further down on to the next stop -, one
+// heading up goes to its top (unless `up` is off), and no key
 // stops there - an arrow with `ends`, a page key, a key with `screens`. A
 // stop taller than that keeps its end as a rest.
 //
@@ -591,10 +593,12 @@
         }
 
         // A band reaches at most halfway to the neighbouring stop, so both
-        // stay reachable however the bands are set.
+        // stay reachable however the bands are set. A band below counts from
+        // where the stop rests: a short stop's from its top, as for a stop the
+        // screen holds.
         for (i = 0; i < unique.length; i++) {
-            if (i > 0) unique[i].bandUp = Math.min(unique[i].bandUp, (unique[i].top - unique[i - 1].end) / 2);
-            if (i < unique.length - 1) unique[i].bandDown = Math.min(unique[i].bandDown, (unique[i + 1].top - unique[i].end) / 2);
+            if (i > 0) unique[i].bandUp = Math.min(unique[i].bandUp, (unique[i].top - unique[i - 1].rest) / 2);
+            if (i < unique.length - 1) unique[i].bandDown = Math.min(unique[i].bandDown, (unique[i + 1].top - unique[i].rest) / 2);
         }
 
         this.stops = unique;
@@ -801,11 +805,10 @@
 
         // Past the last stop: inside its band below it, heading up - or an
         // overshoot from above - goes back to the stop. Otherwise free.
+        // (Its band counts from where it rests: a short stop's top.)
         if (y > last.end) {
-            var overshotDown = from < last.end - tolerance;
-            // A stop barely taller than the screen is not glided back up to from below heading down: its top is behind.
-            if (direction > 0 && last.rest === last.top && last.end > last.top) return;
-            if (y < last.end + last.bandDown && (direction < 0 || overshotDown)) this.toward(ending(last), direction < 0 ? -1 : 1);
+            var overshotDown = from < last.rest - tolerance;
+            if (y < last.rest + last.bandDown && (direction < 0 || overshotDown)) this.toward(ending(last), direction < 0 ? -1 : 1);
             return;
         }
 
@@ -816,8 +819,10 @@
             var lower = stops[i + 1];
             if (y <= upper.end || y >= lower.top) continue;
 
-            // Heading down past a stop barely taller than the screen: on to the next one, never back to its top.
-            if (direction > 0) this.toward(y < upper.end + upper.bandDown && upper.rest === upper.end ? ending(upper) : lower, 1);
+            // The band below counts from where the upper stop rests: a stop
+            // barely taller than the screen (`shortEnd`) is a stop the screen
+            // holds - within its band of its top, back to its top; further, on.
+            if (direction > 0) this.toward(y < upper.rest + upper.bandDown ? ending(upper) : lower, 1);
             else if (direction < 0) this.toward(y > lower.top - lower.bandUp ? lower : ending(upper), -1);
             return;
         }

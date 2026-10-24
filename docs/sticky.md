@@ -140,10 +140,12 @@ meets the bottom of the screen; its band below counts from there, and coming
 back up from the next stop settles on its last screen, not its top.
 Unless it is barely taller than the screen: a stop at most a quarter of a
 screen taller (`shortEnd`, 1.5.2) rests at its top only. Its few extra pixels
-are read freely all the same, but a scroll heading down that comes to rest
-past it goes on to the next stop - even inside its band below -, one heading
-up goes to its top (with `up: false`, it rests where it is), and no key stops
-at its end.
+are read freely all the same, but it is otherwise a stop the screen holds:
+its band below counts from its top (1.5.3), so a scroll heading down that
+comes to rest past its end within that band glides back to its top, and one
+further down goes on to the next stop (within the `reach`); one heading up
+goes to its top (with `up: false`, it rests where it is), and no key stops at
+its end.
 
 A band never reaches past halfway to the neighbouring stop. The glide is the
 browser's smooth scroll, which any wheel, touch, key or click interrupts, and

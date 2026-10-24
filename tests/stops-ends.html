@@ -5,7 +5,7 @@
   of the stop below to the end of a tall one before its top. Without the option, the arrows go from
   top to top as before. A stop at most a quarter of a screen taller than the screen (`shortEnd`, 1.5.2)
   has its top alone as a rest: neither the arrows nor a scroll coming to rest past it stop at its end,
-  read freely all the same; one 60% taller keeps its end. smooth: false, so that every glide is a jump
+  read freely all the same, its band below counted from its top (1.5.3); one 60% taller keeps its end. smooth: false, so that every glide is a jump
   the page can measure at once.
   Opened by tests/run.mjs in a headless browser; the page writes its verdict in #result.
 -->
@@ -130,6 +130,43 @@
         H.scroll(top('short')); await H.after(SETTLE * 3);
         await press('ArrowDown');
         H.check(H.near(y(), shortEnd), 'with data-sticky-short-end="0.1", ArrowDown goes to its end', y() + ' vs ' + shortEnd);
+
+        // Gentle stops (reach and bands 140px, 1.5.3): a short stop's band below counts from its top, as for a stop
+        // the screen holds. 31px taller (panoboutique: top 1695, end 1726, a gesture from 1444 landing at 1804): back
+        // to its top - 1.5.2 left it there, between two sections, the next one out of reach.
+        var el = document.getElementById('short');
+        el.removeAttribute('data-sticky-short-end');
+        el.removeAttribute('data-sticky-band-down');
+        el.style.height = 'calc(100vh + 31px)';
+        stops.options.reach = 140; stops.options.bandUp = 140; stops.options.bandDown = 140;
+        stops.dirty = true;
+        await H.after(300); // past the last key's own scroll (REVEAL): the wheel's
+        H.scroll(top('short') - 251); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('short') - 251), 'a rest farther than the reach stays', y() + ' vs ' + (top('short') - 251));
+        H.scroll(top('short') + 109); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('short')), 'a rest 78px past a 31px short stop\'s end, within its band of its top, glides back to its top', y() + ' vs ' + top('short'));
+        H.scroll(top('short') + 20); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('short') + 20), 'its extra pixels are read freely', y() + ' vs ' + (top('short') + 20));
+
+        // 123px taller (brieucvourch, with screens: top 832, end 955): 130px down, past its end inside its band, back
+        // to its top; 150, 180 and 210px down (982, 1012, 1042), past its band, the next stop is out of reach: the page
+        // stays, as below a section of a screen's height.
+        stops.options.screens = true;
+        el.style.height = 'calc(100vh + 123px)';
+        stops.dirty = true;
+        H.scroll(top('short')); await H.after(SETTLE * 3);
+        H.scroll(top('short') + 130); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('short')), 'a rest 130px down a 123px short stop glides back to its top', y() + ' vs ' + top('short'));
+        for (var down of [150, 180, 210]) {
+            H.scroll(top('short')); await H.after(SETTLE * 3);
+            H.scroll(top('short') + down); await H.after(SETTLE * 3);
+            H.check(H.near(y(), top('short') + down), 'a rest ' + down + 'px down, past its band, the next stop out of reach, stays', y() + ' vs ' + (top('short') + down));
+        }
+        // Without the reach, past its band: on to the next stop.
+        stops.options.reach = Infinity;
+        H.scroll(top('short')); await H.after(SETTLE * 3);
+        H.scroll(top('short') + 150); await H.after(SETTLE * 3);
+        H.check(H.near(y(), top('sixty')), 'without a reach, a rest past its band goes on to the next stop', y() + ' vs ' + top('sixty'));
 
         H.done();
     })();
