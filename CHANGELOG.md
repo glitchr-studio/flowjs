@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.1 - 2026-10-24
+
+- **stops** - `screens`: down, from less than a quarter of a screen before a
+  tall stop's end, a key goes on to the next stop rather than making that short
+  step to the end; up, a step that would rest less than a quarter of a screen
+  under the stop's top goes to the top. With 1.5.0 a section 173px taller than
+  a screen took a screen, then 173px, then the next section (anaelletourret's
+  albums). tests/stops-screens.html.
+
 ## 1.5.0 - 2026-10-24
 
 - **stops** - the `screens` option (`false` by default, so nothing changes

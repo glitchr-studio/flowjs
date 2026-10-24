@@ -203,9 +203,10 @@
 
     // With `screens`: what is left before a stop's end (or its top, going up)
     // that a key does not stop for - this share of the screen, a line at the
-    // least. Less than that, the key goes on to the next stop: a step of a few
-    // pixels read as a key that did nothing.
-    var JOIN = 0.12;
+    // least. Less than that, the key goes on: down to the next stop, up to the
+    // stop's top - a short step before the section that comes read as a key
+    // that stopped for nothing.
+    var JOIN = 0.25;
 
     // The keys, per axis: [key, shift] -> [direction, kind].
     function keyMove(event, horizontal) {
@@ -989,11 +990,12 @@
      * `screens` (1.5): an arrow or a page key reads the stop it is in a whole
      * screen at a time - its top, a screen further, ..., its end (its last
      * screen), exactly -, then goes on to the next stop's top; up, the same
-     * back to its top, then to the end of the stop above. A step that would
-     * leave less than JOIN of a screen before that end (or top) goes there at
-     * once, and from less than that away the key goes on to the neighbour:
-     * never a rest a few pixels short of a section. Past a neighbour farther
-     * than NEAR screens, the browser scrolls, as for the other keys.
+     * back to its top, then to the end of the stop above. Down, from less
+     * than JOIN of a screen before the end the key goes on to the next stop
+     * rather than to that end; up, a step that would rest less than that
+     * under the stop's top goes to the top: never a short step to rest just
+     * before a section. Past a neighbour farther than NEAR screens, the
+     * browser scrolls, as for the other keys.
      */
     Stops.prototype.screened = function (stops, y, direction, screen, near, at) {
         var tolerance = this.options.tolerance;
@@ -1009,7 +1011,7 @@
                 stop = stops[i];
                 end = endOf(stop);
                 left = end - y;
-                if (left > join) return at(left <= screen + join ? end : y + screen, stop.element);
+                if (left > join) return at(left > screen ? y + screen : end, stop.element);
             }
             var next = stops[i + 1];
             if (!next) return null;
@@ -1022,7 +1024,7 @@
             // Below a tall stop's end (in what follows it, a separator): its end first.
             end = endOf(stop);
             if (y - end > join && y - end <= screen + join) return at(end, stop.element);
-            return at(left <= screen + join ? stop.top : y - screen, stop.element);
+            return at(left - screen > join ? y - screen : stop.top, stop.element);
         }
         var before = stops[i - 1];
         if (!before) return null;

@@ -3,7 +3,8 @@
   StickyStops with `screens` (1.5): arrows and page keys read a tall stop a whole screen at a time,
   from its top to its end (its last screen) exactly, then go on to the next stop's top; up, back the
   same way. A stop barely taller than the screen (30px) has its top alone: no rest 30px further.
-  Read to a few pixels from an end, a key goes on to the neighbour. smooth: false, so that every
+  Read to less than a quarter of a screen from an end, a key goes on: down to the next stop, up to
+  the stop's top. smooth: false, so that every
   glide is a jump the page can measure at once.
   Opened by tests/run.mjs in a headless browser; the page writes its verdict in #result.
 -->
@@ -69,9 +70,13 @@
         await expect('ArrowDown', top('b'), '12px before a tall stop\'s end, ArrowDown goes on to the next stop');
         H.scroll(top('tall') + 12); await H.after(SETTLE * 3);
         await expect('ArrowUp', top('a'), '12px under a tall stop\'s top, ArrowUp goes on to the stop above');
-        // A screen from the end, give or take a little: the end itself, in one step.
+        // A screen and a little from the end: a whole screen, then on to the next stop, not to the end 20px further.
         H.scroll(tallEnd - screen - 20); await H.after(SETTLE * 3);
-        await expect('ArrowDown', tallEnd, 'a screen and 20px before the end, ArrowDown goes to the end at once');
+        await expect('ArrowDown', tallEnd - 20, 'a screen and 20px before the end, ArrowDown moves a whole screen');
+        await expect('ArrowDown', top('b'), 'then on to the next stop, not 20px to the end');
+        // Up, a screen and a little under the top: a step that would rest 20px under it goes to the top.
+        H.scroll(top('tall') + screen + 20); await H.after(SETTLE * 3);
+        await expect('ArrowUp', top('tall'), 'a screen and 20px under the top, ArrowUp goes to the top');
 
         H.done();
     })();
