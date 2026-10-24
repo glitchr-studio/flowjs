@@ -162,6 +162,15 @@ Gentler stops, for a page that should be discovered rather than led:
   screen, then on to the next stop's top; up, from its end back to its top,
   and from the top of the stop below to the end of a tall one before its top.
   Without it an arrow goes from top to top, however tall the stop.
+- `screens` (`false` by default, with `keys`; 1.5): arrows and page keys read
+  a tall stop a whole screen at a time - its top, a screen further, and so on
+  to its end (its last screen), exactly - then go on to the next stop's top;
+  up, the same back to its top, then to the end of the stop above. A step that
+  would leave less than an eighth of a screen before that end (or top) goes
+  there at once, and from closer than that a key goes on to the neighbour: a
+  key never moves a few pixels to rest just short of a section. A stop barely
+  taller than the screen has its top alone. It takes the place of `ends` and
+  of the page keys' own step (seven eighths of a screen) where it is set.
 - `easing` (with a `duration`): the curve of the glide - a cubic Bezier as CSS
   writes it, `'cubic-bezier(.65, 0, .35, 1)'` by default (gathering speed,
   then slowing into the stop), its four numbers in an array, one of CSS's

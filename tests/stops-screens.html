@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  StickyStops with `screens` (1.5): arrows and page keys read a tall stop a whole screen at a time,
+  from its top to its end (its last screen) exactly, then go on to the next stop's top; up, back the
+  same way. A stop barely taller than the screen (30px) has its top alone: no rest 30px further.
+  Read to a few pixels from an end, a key goes on to the neighbour. smooth: false, so that every
+  glide is a jump the page can measure at once.
+  Opened by tests/run.mjs in a headless browser; the page writes its verdict in #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>stops screens</title>
+<style>
+    html { scroll-behavior: auto; }
+    body { margin: 0; }
+    section { height: 100vh; }
+    .tall { height: 250vh; }
+    .barely { height: calc(100vh + 30px); }
+    #result { position: fixed; top: 0; left: 0; margin: 0; }
+</style>
+</head>
+<body>
+<section id="a" class="sticky-stop"></section>
+<section id="tall" class="sticky-stop tall"></section>
+<section id="b" class="sticky-stop"></section>
+<section id="barely" class="sticky-stop barely"></section>
+<section id="last" class="sticky-stop tall"></section>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/stops.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var SETTLE = 40;
+        var screen = window.innerHeight;
+        var top = function (id) { return Math.round(document.getElementById(id).getBoundingClientRect().top + window.scrollY); };
+        var y = function () { return Math.round(window.scrollY); };
+        var press = async function (key) { var event = H.key(key); await H.after(SETTLE * 3); return event; };
+        var expect = async function (key, want, what) { await press(key); H.check(H.near(y(), want), what, y() + ' vs ' + want); };
+
+        var stops = StickyStops.attach(window, { smooth: false, keys: true, screens: true, settle: SETTLE });
+        await H.frame();
+        var tallEnd = top('tall') + Math.round(1.5 * screen);
+        var lastEnd = top('last') + Math.round(1.5 * screen);
+
+        // Down: a -> tall's top -> a screen into it -> its end -> b -> barely (its top only) -> last.
+        await expect('ArrowDown', top('tall'), 'ArrowDown from a short stop goes to the next stop');
+        await expect('ArrowDown', top('tall') + screen, 'ArrowDown in a tall stop moves a whole screen');
+        await expect('ArrowDown', tallEnd, 'the next one rests at its end exactly, its last screen');
+        await expect('ArrowDown', top('b'), 'then on to the next stop\'s top');
+        await expect('ArrowDown', top('barely'), 'a stop 30px taller than the screen is reached at its top');
+        await expect('ArrowDown', top('last'), 'and left for the next stop: no rest 30px further');
+        await expect('PageDown', top('last') + screen, 'a page key reads a whole screen too');
+        await expect('PageDown', lastEnd, 'and rests at the last stop\'s end');
+
+        // Up: the same rests, back.
+        await expect('ArrowUp', lastEnd - screen, 'ArrowUp at a tall stop\'s end moves a whole screen up');
+        await expect('ArrowUp', top('last'), 'then rests at its top');
+        await expect('ArrowUp', top('barely'), 'up to a barely tall stop\'s top, not 30px below it');
+        await expect('ArrowUp', top('b'), 'then the stop above');
+        await expect('ArrowUp', tallEnd, 'up to a tall stop: its end first');
+        await expect('ArrowUp', tallEnd - screen, 'a screen up');
+        await expect('ArrowUp', top('tall'), 'its top');
+        await expect('ArrowUp', top('a'), 'the stop above');
+
+        // A few pixels from an end: on to the neighbour, not a step of a few pixels.
+        H.scroll(tallEnd - 12); await H.after(SETTLE * 3);
+        await expect('ArrowDown', top('b'), '12px before a tall stop\'s end, ArrowDown goes on to the next stop');
+        H.scroll(top('tall') + 12); await H.after(SETTLE * 3);
+        await expect('ArrowUp', top('a'), '12px under a tall stop\'s top, ArrowUp goes on to the stop above');
+        // A screen from the end, give or take a little: the end itself, in one step.
+        H.scroll(tallEnd - screen - 20); await H.after(SETTLE * 3);
+        await expect('ArrowDown', tallEnd, 'a screen and 20px before the end, ArrowDown goes to the end at once');
+
+        H.done();
+    })();
+</script>
+</body>
+</html>
