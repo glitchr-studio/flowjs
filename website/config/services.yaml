@@ -1,0 +1,26 @@
+# The flowjs website: the repository it stands in is its content - docs/*.md, README.md, CHANGELOG.md
+# and the JSDoc of src/js - read at the commit being built.
+parameters:
+    # The repository's root: this site is its website/ folder.
+    app.repository_dir: '%kernel.project_dir%/..'
+    app.repository: 'glitchr-studio/flowjs'
+    app.branch: 'master'
+    # The commit built (bin/build sets it from git); the branch when unknown.
+    app.commit: '%env(default:app.branch:FLOW_COMMIT)%'
+    # What `jsdoc -X src/js` wrote (bin/build), and where src/js was when it ran.
+    app.jsdoc_file: '%kernel.project_dir%/var/jsdoc.json'
+    app.jsdoc_root: '%env(default:app.repository_dir:JSDOC_ROOT)%'
+    # The public address of the static site (SITE_URL): an origin, or the folder of one it is served
+    # under (https://glitchr-studio.github.io/flowjs/).
+    app.site_url: '%env(SITE_URL)%'
+    env(SITE_URL): 'http://localhost:8134'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Kernel.php'

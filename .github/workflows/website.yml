@@ -1,0 +1,128 @@
+# The flowjs website (website/): built from this commit - docs/*.md, README.md, CHANGELOG.md, the JSDoc
+# of src/js, Flow's own scripts - exported statically by omnibridge/static and published on GitHub Pages.
+#
+#   pull request   the site's tests, the whole site built, uploaded as an artifact (nothing published)
+#   master         the same, then deployed to GitHub Pages: https://glitchr-studio.github.io/flowjs/
+#
+# Settings → Pages → Source: GitHub Actions, once, before the first deployment.
+name: website
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: read
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: GitHub Pages
+        id: pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Site address
+        env:
+          CUSTOM_SITE_URL: ${{ vars.SITE_URL }}
+          PAGES_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          site_url="${CUSTOM_SITE_URL:-${PAGES_URL:-https://glitchr-studio.github.io/flowjs/}}"
+          echo "SITE_URL=$site_url" >> "$GITHUB_ENV"
+          echo "FLOW_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "The site: $site_url"
+
+      - uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
+        with:
+          php-version: '8.4'
+          extensions: ctype, dom, iconv, mbstring, xml
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          npm ci --no-audit --no-fund
+
+      - name: Assets (JSDoc, Sass, Flow's scripts, the fonts, Glitch Art's signature)
+        run: bin/build assets
+
+      - name: Tests
+        run: |
+          php bin/console lint:twig templates
+          php bin/console lint:container
+          php bin/phpunit
+
+      - name: Export
+        run: bin/build export --target=github-pages
+
+      - name: The export
+        run: |
+          python3 - <<'PY'
+          import json
+          manifest = json.load(open('dist/omnibridge-static.json'))
+          problems = [d for d in manifest['diagnostics'] if d['level'] != 'notice']
+          assert not problems, problems
+          index = json.load(open('dist/search.json'))['entries']
+          kinds = {e['k'] for e in index}
+          assert {'page', 'section', 'heading', 'symbol', 'release'} <= kinds, kinds
+          for page in ('index.html', 'docs/index.html', 'api/index.html', 'changelog/index.html', '404.html', '.nojekyll'):
+              open('dist/' + page)
+          print(f"{len(manifest['pages'])} pages, {len(manifest['files'])} files, {len(index)} search records")
+          PY
+
+      - name: Upload the preview
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: website-pr-${{ github.event.number }}
+          path: website/dist
+          retention-days: 14
+
+      - name: Upload the site for GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: website/dist
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

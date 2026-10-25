@@ -1,0 +1,29 @@
+{# What each version changed: CHANGELOG.md at the commit built, its releases in the sidebar. #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Changelog · Flow{% endblock %}
+{% block main_class %}doc is-changelog{% endblock %}
+
+{% block body %}
+<div class="wrap omnidocs-layout">
+    <aside class="omnidocs-sidebar doc-side" id="doc-side" data-omnidocs-toc-scroll aria-label="Releases">
+        <nav class="doc-pages" aria-label="The documentation">
+            <a href="{{ path('app_docs') }}">Manual</a>
+            <a href="{{ path('app_api') }}">API reference</a>
+            <a href="{{ path('app_changelog') }}" aria-current="page">Changelog</a>
+        </nav>
+        <p class="doc-side-title">Releases</p>
+        <nav class="omnidocs-toc" data-omnidocs-toc aria-label="Releases">
+            <ul>{% for release in changelog.releases %}<li><a href="#{{ release.id }}">{{ release.version }}{% if release.date %} <small>{{ release.date }}</small>{% endif %}</a></li>{% endfor %}</ul>
+        </nav>
+    </aside>
+    <article class="omnidocs-content doc-content">
+        <button type="button" class="omnidocs-toc-toggle" data-omnidocs-toc-toggle aria-controls="doc-side" aria-expanded="false">Releases</button>
+        <header class="doc-head">
+            <p class="doc-kicker">CHANGELOG.md · read at <a href="{{ site.githubUrl }}/blob/{{ site.commit }}/CHANGELOG.md" rel="noopener"><code>{{ site.shortCommit }}</code></a></p>
+            <h1>Changelog</h1>
+        </header>
+        <div class="prose">{{ changelog.rendered.html|raw }}</div>
+    </article>
+</div>
+{% endblock %}

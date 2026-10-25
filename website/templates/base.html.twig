@@ -1,0 +1,83 @@
+{#
+ # Every page: the header (the line's mark, the pages, the search - ⌘ K, Ctrl K or "/"), the page's
+ # block flowjs' navigation swaps (#page), the footer with Glitch Art's signature. Flow itself runs the
+ # site: Transparent navigates it, Sticky hides the header on the way down, StickyStops settles the
+ # showcase's sections, omnidocs' script reads the manual's table of contents and the search.
+ #}
+<!doctype html>
+<html lang="en" class="transparent">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Flow{% endblock %}</title>
+    <meta name="description" content="{% block description %}Scroll and navigation for server-rendered pages: navigation without page loads, sticky effects, scroll stops, sortable lists, AJAX channels, cookies and consent - one library, one module per feature.{% endblock %}">
+    {% block canonical %}<link rel="canonical" href="{{ site.absolute(app.request.pathInfo) }}">{% endblock %}
+    <meta name="color-scheme" content="light dark">
+    <link rel="icon" href="{{ asset('images/favicon.svg') }}" type="image/svg+xml">
+    <link rel="stylesheet" href="{{ asset('flow/css/index.css') }}">
+    <link rel="stylesheet" href="{{ asset('omnidocs/omnidocs.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/site.css') }}">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="site-head sticky-top" data-cookie-ignore>
+    <div class="site-head-in">
+        <a class="site-mark" href="{{ path('app_home') }}" aria-label="Flow, home">
+            <svg class="site-mark-line" viewBox="0 0 64 16" aria-hidden="true"><path d="M2 8h60"/><circle cx="8" cy="8" r="5"/><circle cx="32" cy="8" r="5"/><circle cx="56" cy="8" r="5"/></svg>
+            <span>Flow</span>
+        </a>
+        {% set route = app.request.attributes.get('_route') %}
+        <nav class="site-nav" aria-label="The site">
+            <a href="{{ path('app_home') }}"{% if route == 'app_home' %} aria-current="page"{% endif %}>Showcase</a>
+            <a href="{{ path('app_docs') }}"{% if route == 'app_docs' %} aria-current="page"{% endif %}>Manual</a>
+            <a href="{{ path('app_api') }}"{% if route == 'app_api' %} aria-current="page"{% endif %}>API</a>
+            <a href="{{ path('app_changelog') }}"{% if route == 'app_changelog' %} aria-current="page"{% endif %}>Changelog</a>
+        </nav>
+        {% include '@Omnidocs/search.html.twig' with {
+            index: path('app_search_index'),
+            label: 'Search',
+            placeholder: 'Search the manual, the API, the changelog',
+            none: 'Nothing found for “%q%”',
+            hint: 'A page, a section, an option, a function: StickyStops.attach, screens, consent…',
+            kinds: {page: 'Page', section: 'Module', heading: 'Section', symbol: 'API', release: 'Release'},
+            class: 'site-search'
+        } %}
+        <a class="site-github" href="{{ site.githubUrl }}" rel="noopener" aria-label="flowjs on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    </div>
+</header>
+
+<div id="page" data-layout="main">
+    <main id="main" class="{% block main_class %}{% endblock %}">
+        {% block body %}{% endblock %}
+    </main>
+</div>
+
+<footer class="site-foot" data-cookie-ignore>
+    <div class="site-foot-in">
+        <div class="site-foot-sign">
+            {#- Glitch Art's signature, omnibase's own partial: black, white at night (site.css), never the site's colours. -#}
+            {% include '@Base/partials/_credits.html.twig' with {color: 'black', detail: false} %}
+            <p class="site-foot-name"><b>Flow</b> <span>@glitchr/flowjs · MIT</span></p>
+        </div>
+        <ul class="site-foot-links">
+            <li><a href="{{ site.githubUrl }}" rel="noopener">GitHub</a></li>
+            <li><a href="{{ site.npmUrl }}" rel="noopener">npm</a></li>
+            <li><a href="{{ path('app_changelog') }}">Changelog</a></li>
+            <li>Built from <a href="{{ site.githubUrl }}/tree/{{ site.commit }}" rel="noopener"><code>{{ site.shortCommit }}</code></a></li>
+        </ul>
+    </div>
+</footer>
+
+<div id="loader" aria-hidden="true"></div>
+<script src="{{ asset('vendor/jquery.min.js') }}"></script>
+<script src="{{ asset('flow/js/core.js') }}"></script>
+<script src="{{ asset('flow/js/transparent.js') }}"></script>
+<script src="{{ asset('flow/js/sticky.js') }}"></script>
+<script src="{{ asset('flow/js/stops.js') }}"></script>
+<script src="{{ asset('flow/js/sortable.js') }}"></script>
+<script src="{{ asset('flow/js/ajaxer.js') }}"></script>
+<script src="{{ asset('flow/js/cookie.js') }}"></script>
+<script src="{{ asset('omnidocs/omnidocs.js') }}"></script>
+<script src="{{ asset('js/site.js') }}"></script>
+</body>
+</html>

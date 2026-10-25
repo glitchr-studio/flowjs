@@ -18,6 +18,11 @@ core. The modules are independent of each other: import what a page needs.
 Per module: [navigation](docs/navigation.md), [sticky and stops](docs/sticky.md),
 [sortable](docs/sortable.md), [ajaxer](docs/ajaxer.md), [cookie](docs/cookie.md).
 
+The website, https://glitchr-studio.github.io/flowjs/, runs every module live beside its code and
+holds this manual on one page, the API reference JSDoc reads from `src/js`, and the changelog
+(`website/`, a Symfony application exported statically at each push to master; not part of the npm
+package).
+
 ## Use
 
 Everything, with the stylesheets (bundler with Sass and jQuery provided, e.g.

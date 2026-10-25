@@ -1,0 +1,12 @@
+# The static export served as GitHub Pages serves it: under ${BASE_PATH} (/flowjs), a folder
+# redirected to its address with a slash and answered by its index.html, 404.html for the rest.
+server {
+    listen 80;
+    root /srv/www;
+    charset utf-8;
+    index index.html;
+    absolute_redirect off;
+    location / {
+    }
+    error_page 404 ${BASE_PATH}/404.html;
+}

@@ -1,0 +1,252 @@
+{#
+ # The showcase: flowjs running on this very page, each module beside the code that runs it. The page
+ # is a line of stops (StickyStops on the window: a scroll comes to rest on a station, the arrows and
+ # Space go from one to the next, a tall one is read a screen at a time); each station is a module.
+ #}
+{% extends 'base.html.twig' %}
+
+{% block title %}Flow - scroll and navigation for server-rendered pages{% endblock %}
+{% block main_class %}home{% endblock %}
+
+{% macro code(language, source, caption) %}<div class="doc-code" data-lang="{{ language }}">{% if caption %}<div class="doc-code-caption">{{ caption }}</div>{% endif %}<pre class="notranslate"><code class="language-{{ language }}">{{ source|trim }}</code></pre></div>{% endmacro %}
+{% import _self as m %}
+
+{% block body %}
+<section class="stop hero sticky-stop" id="top" aria-labelledby="hero-title">
+    <div class="wrap">
+        <p class="hero-kicker"><span class="badge">@glitchr/flowjs{% if latest %} {{ latest.version }}{% endif %}</span> one library, one module per feature, no build step required</p>
+        <h1 id="hero-title">Pages that load in place,<br>sections the scroll comes to rest on.</h1>
+        <p class="hero-lead">Flow is the scroll and the navigation of server-rendered pages: links and forms that load the next page in the background, a header that steps aside, scroll stops, sortable lists, named AJAX channels, the cookies and the visitor's consent. Everything on this site runs on it.</p>
+        <div class="hero-install">
+            <code data-copy>npm install @glitchr/flowjs</code>
+            <a class="button" href="{{ path('app_docs') }}">Read the manual</a>
+            <a class="button is-line" href="{{ path('app_api') }}">API reference</a>
+        </div>
+        <nav class="line" aria-label="The modules, as stations of a line">
+            <ol>
+                <li><a href="#stops"><span class="station"></span><b>Stops</b><small>StickyStops</small></a></li>
+                <li><a href="#navigation"><span class="station"></span><b>Navigation</b><small>Transparent</small></a></li>
+                <li><a href="#sticky"><span class="station"></span><b>Sticky</b><small>Sticky</small></a></li>
+                <li><a href="#sortable"><span class="station"></span><b>Sortable</b><small>StickySortable</small></a></li>
+                <li><a href="#ajaxer"><span class="station"></span><b>Ajaxer</b><small>Ajaxer</small></a></li>
+                <li><a href="#cookie"><span class="station"></span><b>Cookie</b><small>Cookie</small></a></li>
+            </ol>
+        </nav>
+        <p class="hint">This page is a line of stops: scroll and let go, or press <kbd>↓</kbd>, <kbd>Space</kbd>, <kbd>Page Down</kbd>.</p>
+    </div>
+</section>
+
+<section class="stop sticky-stop" id="stops" aria-labelledby="stops-title">
+    <div class="wrap demo-grid">
+        <header class="demo-head">
+            <p class="demo-module"><span class="station"></span>StickyStops <a href="{{ path('app_docs') }}#sticky-scroll-stops">manual</a> · <a href="{{ path('app_api') }}#stickystops">API</a></p>
+            <h2 id="stops-title">Scroll stops</h2>
+            <p>Places a scroll settles on once it comes to rest - momentum included. Nothing happens while the reader scrolls: the glide only completes, or undoes, the movement they started. With <code>keys</code>, the arrows go from stop to stop; with <code>screens</code>, a stop taller than its scroller is read a screen at a time; a stop barely taller (<code>shortEnd</code>) rests at its top only.</p>
+        </header>
+        <div class="demo" data-demo="stops">
+            <div class="demo-bar"><span>A scroller of its own</span><output data-stops-state>stop 1 of 5</output></div>
+            <div class="demo-scroller" data-stops-scroller tabindex="0" aria-label="Five stops in a scroller of their own: scroll, or focus it and press the arrows">
+                <article class="sticky-stop card is-a"><b>1</b> A short stop</article>
+                <article class="sticky-stop card is-tall"><b>2</b> A tall stop, read a screen at a time with the keys (<code>screens</code>)<span class="tall-mark">… its second screen</span><span class="tall-mark">… its end</span></article>
+                <article class="sticky-stop card is-b"><b>3</b> A short stop</article>
+                <article class="sticky-stop card is-barely" data-sticky-short-end="0.25"><b>4</b> A stop barely taller than the scroller: its top alone (<code>shortEnd</code>)</article>
+                <article class="sticky-stop card is-c"><b>5</b> The last stop</article>
+            </div>
+            <div class="demo-bar"><span>A row, sideways (<code>data-sticky-axis="x"</code>)</span></div>
+            <div class="demo-row" data-sticky-axis="x" data-sticky-duration="450" tabindex="0" aria-label="A sideways row of stops: swipe, or focus it and press left and right">
+                {% for name in ['Navigation', 'Sticky', 'Stops', 'Sortable', 'Ajaxer', 'Cookie'] %}<figure class="sticky-stop tile">{{ name }}</figure>{% endfor %}
+            </div>
+        </div>
+        <div class="demo-code">
+            {{ m.code('js', "
+var scroller = document.querySelector('[data-stops-scroller]');
+StickyStops.attach(scroller, {
+    keys: true,        // the arrows, Page Up / Down, Space go stop to stop
+    screens: true,     // a tall stop: a screen at a time, top to end
+    duration: 600,     // a glide of its own, along the easing curve
+    reach: 200         // px: only a rest near a stop is completed
+});
+scroller.addEventListener('sticky:progress', function (e) {
+    state.textContent = 'stop ' + (e.detail.index + 1) + ' of 5';
+});
+
+// The page itself: its sections are stops too.
+StickyStops.attach(window, { keys: true, screens: true, up: false, reach: '40vh' });
+", 'stops.js') }}
+            {{ m.code('html', '
+<div class="photos" data-sticky-axis="x" data-sticky-duration="450">
+    <figure class="sticky-stop">…</figure>
+    <figure class="sticky-stop">…</figure>
+</div>
+', 'A row attaches itself') }}
+        </div>
+    </div>
+</section>
+
+<section class="stop sticky-stop" id="navigation" aria-labelledby="navigation-title">
+    <div class="wrap demo-grid">
+        <header class="demo-head">
+            <p class="demo-module"><span class="station"></span>Transparent <a href="{{ path('app_docs') }}#navigation">manual</a> · <a href="{{ path('app_api') }}#transparent">API</a></p>
+            <h2 id="navigation-title">Navigation without page loads</h2>
+            <p>Links and forms load the next page in the background and swap the page's block in place: the history, the scroll positions, the head and the scripts kept in step, Back and Forward giving each page back where it was left. This site is navigated so: go to the manual and come back.</p>
+        </header>
+        <div class="demo" data-demo="navigation">
+            <dl class="counters">
+                <div><dt>Documents loaded</dt><dd data-nav-loads>1</dd></div>
+                <div><dt>Pages swapped in place</dt><dd data-nav-swaps>0</dd></div>
+            </dl>
+            <p class="demo-try"><a href="{{ path('app_docs') }}">The manual</a> <a href="{{ path('app_api') }}">The API</a> <a href="{{ path('app_changelog') }}">The changelog</a></p>
+            <p class="demo-note">The first number stays at 1 as you browse: the browser loads one document; every page after it is fetched and swapped into <code>#page</code>.</p>
+        </div>
+        <div class="demo-code">
+            {{ m.code('html', '
+<div id="page" data-layout="main">…the page…</div>
+<script src="jquery.js"></script>
+<script src="flowjs/src/js/core.js"></script>
+<script src="flowjs/src/js/transparent.js"></script>
+', 'Every page') }}
+            {{ m.code('js', "
+Transparent.ready({ identifier: '#page', exceptions: ['*.json'] });
+
+window.addEventListener('transparent:load', function () {
+    swaps.textContent = ++count;    // each page swapped in
+});
+", 'site.js') }}
+        </div>
+    </div>
+</section>
+
+<section class="stop sticky-stop" id="sticky" aria-labelledby="sticky-title">
+    <div class="wrap demo-grid">
+        <header class="demo-head">
+            <p class="demo-module"><span class="station"></span>Sticky <a href="{{ path('app_docs') }}#sticky">manual</a> · <a href="{{ path('app_api') }}#sticky">API</a></p>
+            <h2 id="sticky-title">Sticky effects</h2>
+            <p>The header of this site is a <code>.sticky-top</code>: it steps aside as the page scrolls down and comes back the moment the reader heads up. Magnets, fading blocks, the address following the headline read, a bottom bar, scroll-percent triggers - one listener per scroller, one animation frame for the measures.</p>
+        </header>
+        <div class="demo" data-demo="sticky">
+            <p class="demo-try"><button type="button" class="button" data-sticky-top-demo>Scroll to the top, Flow's way</button></p>
+            <p class="demo-note">Scroll this page down: the header leaves; up a little: it is back. The button glides with <code>Sticky.scrollTo()</code>, which the stops leave alone - a scroll a script makes rests where it was put.</p>
+        </div>
+        <div class="demo-code">
+            {{ m.code('html', '<header class="site-head sticky-top">…</header>', 'The header') }}
+            {{ m.code('js', "
+Sticky.ready({ scrollhide: true, replacehash: false });
+
+button.addEventListener('click', function () {
+    Sticky.scrollTo(0);
+});
+", 'site.js') }}
+        </div>
+    </div>
+</section>
+
+<section class="stop sticky-stop" id="sortable" aria-labelledby="sortable-title">
+    <div class="wrap demo-grid">
+        <header class="demo-head">
+            <p class="demo-module"><span class="station"></span>StickySortable <a href="{{ path('app_docs') }}#sortable">manual</a> · <a href="{{ path('app_api') }}#stickysortable">API</a></p>
+            <h2 id="sortable-title">Sortable lists</h2>
+            <p>Drag-and-drop with pointer events - mouse, pen and touch on one code path - its placeholder your own, the list scrolled when an item reaches its edge, the arrows on a handle moving an item for the keyboard.</p>
+        </header>
+        <div class="demo" data-demo="sortable">
+            <ol class="sortable" data-sortable-list>
+                {% for name in ['Navigation', 'Sticky', 'Stops', 'Sortable', 'Ajaxer', 'Cookie'] %}
+                <li data-sortable-item><button type="button" class="grip" aria-label="Move {{ name }}: drag, or press the arrows">⠿</button> {{ name }}</li>
+                {% endfor %}
+            </ol>
+            <p class="demo-note">The order now: <output data-sortable-order>Navigation, Sticky, Stops, Sortable, Ajaxer, Cookie</output></p>
+        </div>
+        <div class="demo-code">
+            {{ m.code('js', "
+new StickySortable(list, {
+    handle: '.grip',
+    onChange: function (order) {
+        output.textContent = order.map(function (item) {
+            return item.textContent.trim();
+        }).join(', ');
+    }
+});
+", 'sortable.js') }}
+        </div>
+    </div>
+</section>
+
+<section class="stop sticky-stop" id="ajaxer" aria-labelledby="ajaxer-title">
+    <div class="wrap demo-grid">
+        <header class="demo-head">
+            <p class="demo-module"><span class="station"></span>Ajaxer <a href="{{ path('app_docs') }}#ajaxer">manual</a> · <a href="{{ path('app_api') }}#ajaxer">API</a></p>
+            <h2 id="ajaxer-title">Named AJAX channels</h2>
+            <p>A channel is a name with its own address, method, throttle, debounce, loader and retries. A send within the throttle of the last is dropped: press the button quickly, only one request leaves.</p>
+        </header>
+        <div class="demo" data-demo="ajaxer">
+            <p class="demo-try"><button type="button" class="button" data-ajaxer-send data-ajaxer-url="{{ path('app_demo_ajaxer') }}">Ask the channel</button> <output data-ajaxer-count>0 asked, 0 sent</output></p>
+            <pre class="demo-out" data-ajaxer-out aria-live="polite">The answer shows here.</pre>
+        </div>
+        <div class="demo-code">
+            {{ m.code('js', "
+Ajaxer.setUrl('demo', '" ~ path('app_demo_ajaxer') ~ "');
+Ajaxer.setMethod('demo', 'GET');       // a static host answers GET
+Ajaxer.setThrottle('demo', '1s');      // one request a second at most
+Ajaxer.setTarget('demo', out);         // ajaxer-call, ajaxer-success…
+
+Ajaxer.send('demo', {}, function (data) {
+    out.textContent = JSON.stringify(data, null, 2);
+});
+", 'ajaxer.js') }}
+        </div>
+    </div>
+</section>
+
+<section class="stop sticky-stop" id="cookie" aria-labelledby="cookie-title">
+    <div class="wrap demo-grid">
+        <header class="demo-head">
+            <p class="demo-module"><span class="station"></span>Cookie <a href="{{ path('app_docs') }}#cookie">manual</a> · <a href="{{ path('app_api') }}#cookie">API</a></p>
+            <h2 id="cookie-title">Cookies and consent</h2>
+            <p>What a site keeps in the browser and the visitor's answer to it: categories the site declares, the cookies and storage under each, features started at a grant and stopped at a withdrawal, a banner in the site's own words. No sentence is written in the library. This site keeps nothing about you: the panel below is a demonstration, its answer kept under its own name.</p>
+        </header>
+        <div class="demo" data-demo="cookie">
+            <p class="demo-try"><button type="button" class="button" data-cookie-demo-open>Open the consent panel</button> <button type="button" class="button is-line" data-cookie-demo-forget>Forget the answer</button></p>
+            <p class="demo-note">The answer now: <output data-cookie-demo-state>none yet</output></p>
+            <div class="cookie-place" data-cookie-place></div>
+        </div>
+        <div class="demo-code">
+            {{ m.code('js', "
+Cookie.ready({
+    autoOpen: false,                    // asked for by the button
+    container: '[data-cookie-place]',   // the banner built there
+    record: { name: 'flow-demo-consent', store: 'local' },
+    categories: {
+        necessary: { label: 'The site itself', required: true,
+            description: 'Nothing is kept: a static site.' },
+        demo: { label: 'A demonstration feature',
+            description: 'Turns the dot below on.',
+            features: ['demo-dot'] }
+    },
+    texts: { title: 'Your choice', text: 'A demonstration.',
+        accept: 'Accept all', refuse: 'Refuse',
+        customize: 'Choose', save: 'Save' }
+});
+Cookie.use('demo', function () { dot.on(); }, function () { dot.off(); });
+button.addEventListener('click', function () { Cookie.open(); });
+", 'cookie.js') }}
+        </div>
+    </div>
+</section>
+
+<section class="stop end sticky-stop" id="start" aria-labelledby="start-title">
+    <div class="wrap">
+        <h2 id="start-title">Take what a page needs</h2>
+        <div class="start-grid">
+            {{ m.code('js', "
+import '@glitchr/flowjs';              // everything, with the stylesheets
+import '@glitchr/flowjs/stops';        // or one module: StickyStops
+import '@glitchr/flowjs/navigation';   // Transparent (needs jQuery)
+", 'With a bundler') }}
+            {{ m.code('html', '
+<script src="flowjs/src/js/core.js"></script>
+<script src="flowjs/src/js/stops.js"></script>
+', 'Without one') }}
+        </div>
+        <p class="start-links"><a class="button" href="{{ path('app_docs') }}">The manual, on one page</a> <a class="button is-line" href="{{ path('app_api') }}">Every function, every option</a> <a class="button is-line" href="{{ path('app_changelog') }}">What each version changed</a></p>
+    </div>
+</section>
+{% endblock %}
