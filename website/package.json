@@ -1,0 +1,13 @@
+{
+    "name": "flowjs-website",
+    "private": true,
+    "description": "The flowjs website's build tools: JSDoc for the API reference, Sass for Flow's own stylesheets, jQuery for the navigation, the Overpass fonts. Nothing of it is published with @glitchr/flowjs (website/ is outside package.json's files).",
+    "license": "MIT",
+    "devDependencies": {
+        "@fontsource/overpass": "5.2.5",
+        "@fontsource/overpass-mono": "5.2.5",
+        "jquery": "3.7.1",
+        "jsdoc": "4.0.5",
+        "sass": "1.83.4"
+    }
+}

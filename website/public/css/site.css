@@ -1,0 +1,253 @@
+/*
+ * The flowjs website. Its material is what Flow does with a page: a line, and the stations a scroll
+ * comes to rest on - so the look of a transit line's signs: Overpass, drawn after the lettering of
+ * road and transit signage (Delve Withrington, SIL Open Font License), with Overpass Mono for code;
+ * black ink on paper, one signal yellow for the stations, the current place and what one acts on.
+ * At night the sign is lit: light ink on a dark ground, the same yellow.
+ */
+@font-face { font-family: "Overpass"; font-weight: 400; font-display: swap; src: url("../fonts/overpass-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Overpass"; font-weight: 600; font-display: swap; src: url("../fonts/overpass-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Overpass"; font-weight: 800; font-display: swap; src: url("../fonts/overpass-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Overpass Mono"; font-weight: 400; font-display: swap; src: url("../fonts/overpass-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Overpass Mono"; font-weight: 600; font-display: swap; src: url("../fonts/overpass-mono-latin-600-normal.woff2") format("woff2"); }
+
+:root {
+    --paper: #f6f6f2;
+    --sheet: #ffffff;
+    --ink: #16181b;
+    --soft: #5c6067;
+    --line: #d5d6d0;
+    --signal: #f2b000;
+    --on-signal: #16181b;
+    --mark: rgba(242, 176, 0, .32);
+    --head: 3.75rem;
+    --font: "Overpass", "Segoe UI", system-ui, sans-serif;
+    --mono: "Overpass Mono", ui-monospace, Menlo, Consolas, monospace;
+    color-scheme: light;
+
+    /* omnidocs' layout and palette, in the site's colours. */
+    --omnidocs-bg: var(--paper);
+    --omnidocs-fg: var(--ink);
+    --omnidocs-muted: var(--soft);
+    --omnidocs-line: var(--line);
+    --omnidocs-soft: var(--sheet);
+    --omnidocs-accent: var(--ink);
+    --omnidocs-top: calc(var(--head) + 1rem);
+    --omnidocs-drawer-top: var(--head);
+    --omnidocs-mono: var(--mono);
+    --omnidocs-sidebar: 16rem;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --paper: #121417;
+        --sheet: #1a1d21;
+        --ink: #ecebe5;
+        --soft: #a3a6ac;
+        --line: #2e3237;
+        --signal: #ffc519;
+        --on-signal: #121417;
+        --mark: rgba(255, 197, 25, .25);
+        color-scheme: dark;
+    }
+    /* The signature: white at night, never the site's colours. */
+    .site-foot .ga-credits { --ga-credits-ink: #fff; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: calc(var(--head) + .5rem); -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1.0625rem/1.6 var(--font); overflow-x: clip; }
+a { color: inherit; text-decoration-color: var(--signal); text-decoration-thickness: 2px; text-underline-offset: .2em; }
+a:hover { text-decoration-thickness: 3px; }
+code, kbd, pre { font-family: var(--mono); }
+:not(pre) > code { padding: .05em .3em; font-size: .88em; background: var(--sheet); border: 1px solid var(--line); border-radius: 3px; overflow-wrap: anywhere; }
+kbd { display: inline-block; padding: 0 .4em; font-size: .82em; line-height: 1.5; background: var(--sheet); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: 1rem; top: .5rem; z-index: 100; padding: .4rem .8rem; background: var(--signal); color: var(--on-signal); }
+.wrap { width: 100%; max-width: 78rem; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+
+.button { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem 1rem; font: 600 .95rem/1.2 var(--font); color: var(--on-signal); background: var(--signal); border: 2px solid var(--signal); border-radius: 999px; text-decoration: none; cursor: pointer; }
+.button:hover { filter: brightness(1.05); }
+.button.is-line { color: var(--ink); background: transparent; border-color: var(--ink); }
+
+/* ---- the header: the line's mark, the pages, the search ------------------------------ */
+.site-head { position: sticky; top: 0; z-index: 50; height: var(--head); background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); transition: transform .25s ease; }
+.site-head.sticky-top:not(.show) { /* Sticky moves it with an inline top */ }
+.site-head-in { display: flex; align-items: center; gap: 1.25rem; height: 100%; max-width: 78rem; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+.site-mark { display: inline-flex; align-items: center; gap: .55rem; font: 800 1.3rem/1 var(--font); letter-spacing: -.01em; text-decoration: none; }
+.site-mark-line { width: 2.6rem; height: .7rem; overflow: visible; }
+.site-mark-line path { stroke: var(--ink); stroke-width: 3; }
+.site-mark-line circle { fill: var(--paper); stroke: var(--ink); stroke-width: 3; }
+.site-mark-line circle:nth-of-type(2) { fill: var(--signal); stroke: var(--signal); }
+.site-nav { display: flex; gap: .25rem; }
+.site-nav a { padding: .4rem .7rem; font-weight: 600; font-size: .95rem; text-decoration: none; border-radius: 999px; }
+.site-nav a:hover { background: var(--sheet); }
+.site-nav a[aria-current] { background: var(--ink); color: var(--paper); }
+.site-search { margin-left: auto; display: inline-flex; align-items: center; gap: .6rem; min-width: 14rem; padding: .4rem .5rem .4rem .9rem; font: inherit; font-size: .92rem; color: var(--soft); background: var(--sheet); border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+.site-search:hover { border-color: var(--ink); color: var(--ink); }
+.site-search .omnidocs-search-keys { margin-left: auto; display: inline-flex; gap: .25rem; }
+.site-github { display: inline-flex; width: 1.5rem; height: 1.5rem; color: var(--ink); }
+.site-github svg { width: 100%; height: 100%; fill: currentColor; }
+@media (max-width: 52rem) {
+    /* Two rows on a phone: the mark, the search and GitHub; under them the pages. */
+    :root { --head: 6.1rem; }
+    .site-head-in { flex-wrap: wrap; align-content: center; gap: .35rem .6rem; }
+    .site-nav { order: 3; flex-basis: 100%; gap: .1rem; overflow-x: auto; scrollbar-width: none; }
+    .site-nav a { padding: .3rem .65rem; font-size: .9rem; white-space: nowrap; }
+    .site-search { min-width: 0; padding: .35rem .65rem; }
+    .site-search .omnidocs-search-label { display: none; }
+}
+@media (max-width: 26rem) { .site-search .omnidocs-search-keys kbd + kbd { display: none; } }
+
+/* ---- the showcase: a line of stations ------------------------------------------------- */
+.stop { padding: clamp(3rem, 9vh, 6rem) 0; border-bottom: 1px solid var(--line); }
+.hero { min-height: calc(100vh - var(--head)); min-height: calc(100svh - var(--head)); display: flex; align-items: center; }
+.hero-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0 0 1.5rem; color: var(--soft); font-weight: 600; }
+.badge { padding: .15rem .6rem; font: 600 .85rem/1.5 var(--mono); color: var(--on-signal); background: var(--signal); border-radius: 999px; }
+.hero h1 { margin: 0 0 1.25rem; max-width: 18ch; font-size: clamp(2.3rem, 6vw, 4.6rem); line-height: 1.02; font-weight: 800; letter-spacing: -.025em; }
+.hero-lead { max-width: 44rem; margin: 0 0 2rem; font-size: clamp(1.05rem, 1.6vw, 1.25rem); color: var(--soft); }
+.hero-install { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 3rem; }
+.hero-install code { padding: .6rem 1rem; font-size: .95rem; background: var(--sheet); border: 1.5px solid var(--ink); border-radius: 999px; cursor: copy; }
+.hero-install code.is-copied { background: var(--signal); color: var(--on-signal); border-color: var(--signal); }
+
+/* The line map: the modules as stations, the line running through them. */
+.line ol { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.line ol::before { content: ""; position: absolute; left: 0; right: 0; top: .7rem; height: 4px; background: var(--ink); border-radius: 2px; }
+.line a { position: relative; display: grid; justify-items: start; gap: .1rem; padding-top: 2.1rem; text-decoration: none; }
+.line .station { position: absolute; top: 0; left: 0; width: 1.6rem; height: 1.6rem; background: var(--paper); border: 4px solid var(--ink); border-radius: 50%; transition: background .15s, transform .15s; }
+.line a:hover .station, .line a:focus-visible .station { background: var(--signal); transform: scale(1.15); }
+.line b { font-size: 1.05rem; }
+.line small { font: 400 .78rem/1.3 var(--mono); color: var(--soft); }
+.hint { margin: 2.2rem 0 0; color: var(--soft); font-size: .95rem; }
+@media (max-width: 44rem) {
+    .line ol { grid-template-columns: 1fr; gap: .9rem; padding-left: .05rem; }
+    .line ol::before { left: .7rem; right: auto; top: .2rem; bottom: .2rem; width: 4px; height: auto; }
+    .line a { padding: 0 0 0 2.6rem; }
+}
+
+.demo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: start; }
+.demo-head { grid-column: 1 / -1; max-width: 48rem; }
+.demo-module { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 .6rem; font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
+.demo-module .station, .demo-head .station { display: inline-block; width: .95rem; height: .95rem; background: var(--signal); border: 3px solid var(--ink); border-radius: 50%; }
+.demo-module a { color: var(--soft); }
+.demo-head h2 { margin: 0 0 .75rem; font-size: clamp(1.8rem, 3.6vw, 2.8rem); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
+.demo-head p { margin: 0; color: var(--soft); }
+.demo { min-width: 0; padding: 1.25rem; background: var(--sheet); border: 1.5px solid var(--ink); border-radius: .9rem; }
+.demo-code { min-width: 0; }
+.demo-code .doc-code { margin: 0 0 1rem; }
+.demo-code .doc-code pre { max-height: 26rem; }
+@media (max-width: 64rem) { .demo-grid { grid-template-columns: minmax(0, 1fr); } }
+.demo-bar { display: flex; justify-content: space-between; gap: 1rem; margin: 0 0 .5rem; font-size: .85rem; color: var(--soft); }
+.demo-bar output { font: 600 .85rem/1.4 var(--mono); color: var(--ink); }
+.demo-scroller { height: 18rem; overflow-y: auto; overscroll-behavior: contain; padding: .5rem; margin-bottom: 1.25rem; background: var(--paper); border: 1px solid var(--line); border-radius: .6rem; scroll-padding-top: .5rem; }
+.card { display: flex; align-items: flex-start; gap: .75rem; padding: 1rem; margin-bottom: .5rem; background: var(--sheet); border: 1px solid var(--line); border-left: 6px solid var(--ink); border-radius: .4rem; font-weight: 600; }
+.card b { display: inline-grid; place-items: center; flex: none; width: 1.8rem; height: 1.8rem; font: 800 .95rem/1 var(--font); color: var(--on-signal); background: var(--signal); border-radius: 50%; }
+.card.is-a, .card.is-b, .card.is-c { min-height: 9rem; }
+.card.is-tall { flex-wrap: wrap; min-height: 36rem; }
+.card.is-barely { min-height: 18.5rem; }
+.tall-mark { flex-basis: 100%; margin-top: 11rem; color: var(--soft); font-weight: 400; }
+.demo-row { display: flex; gap: .75rem; overflow-x: auto; padding: .5rem; background: var(--paper); border: 1px solid var(--line); border-radius: .6rem; scroll-padding-left: .5rem; }
+.tile { flex: none; display: grid; place-items: end start; width: 9.5rem; height: 6.5rem; margin: 0; padding: .7rem; font-weight: 800; color: var(--paper); background: var(--ink); border-radius: .5rem; }
+.tile:nth-child(odd) { background: var(--signal); color: var(--on-signal); }
+.counters { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0 0 1rem; }
+.counters div { padding: .9rem; background: var(--paper); border-radius: .5rem; }
+.counters dt { font-size: .85rem; color: var(--soft); }
+.counters dd { margin: .2rem 0 0; font: 800 2.4rem/1 var(--font); }
+.demo-try { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0 0 .9rem; }
+.demo-try a { font-weight: 600; }
+.demo-note { margin: 0; font-size: .92rem; color: var(--soft); }
+.demo-note output { color: var(--ink); font-weight: 600; }
+.sortable { margin: 0 0 1rem; padding: 0; list-style: none; }
+.sortable li { display: flex; align-items: center; gap: .6rem; padding: .55rem .75rem; margin-bottom: .4rem; font-weight: 600; background: var(--paper); border: 1px solid var(--line); border-radius: .4rem; }
+.sortable .grip { padding: .1rem .35rem; font-size: 1.1rem; line-height: 1; color: var(--soft); background: none; border: 0; cursor: grab; touch-action: none; }
+.sortable li.is-dragging { opacity: .6; }
+.sortable .is-sortable-placeholder { height: 2.6rem; border: 2px dashed var(--signal); background: transparent; }
+.demo-out { min-height: 6.5rem; margin: 0; padding: .9rem; font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--paper); border: 1px solid var(--line); border-radius: .4rem; }
+.demo-out.ajaxer-call { border-color: var(--signal); }
+.cookie-place:not(:empty) { margin-top: 1rem; }
+.cookie-place [data-cookie-banner], .cookie-place > div { padding: 1rem; background: var(--paper); border: 1px solid var(--line); border-radius: .5rem; }
+.cookie-place button { margin: .3rem .3rem 0 0; padding: .45rem .9rem; font: 600 .9rem/1.2 var(--font); color: var(--ink); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: 999px; cursor: pointer; }
+.cookie-place button:first-of-type { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.end { border-bottom: 0; }
+.end h2 { margin: 0 0 1.25rem; font-size: clamp(1.8rem, 3.6vw, 2.8rem); font-weight: 800; letter-spacing: -.02em; }
+.start-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+@media (max-width: 52rem) { .start-grid { grid-template-columns: minmax(0, 1fr); } }
+.start-links { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.5rem 0 0; }
+
+/* ---- code frames (omnidocs' conventions) ------------------------------------------------- */
+.doc-code { position: relative; }
+.doc-code pre { margin: 0; padding: 1rem 1.1rem; font-size: .86rem; line-height: 1.6; color: var(--ink); background: var(--sheet); border: 1px solid var(--line); border-radius: .5rem; overflow-x: auto; tab-size: 4; }
+.doc-code-caption { padding: .4rem 1.1rem; font: 600 .8rem/1.4 var(--mono); color: var(--ink); background: var(--signal); color: var(--on-signal); border: 0; border-radius: .5rem .5rem 0 0; }
+.doc-code-caption + pre { border-top-left-radius: 0; border-top-right-radius: 0; }
+.doc-code[data-lang]:not(:has(.doc-code-caption))::before { content: attr(data-lang); position: absolute; top: .45rem; right: 4.2rem; font: 600 .7rem/1.6 var(--mono); color: var(--soft); text-transform: lowercase; }
+.doc-code-copy { font-family: var(--font); }
+
+/* ---- the documentation: one page beside its sidebar ---------------------------------------- */
+.doc { padding: 2rem 0 4rem; }
+.doc-side { font-size: .93rem; }
+.doc-pages { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0 0 1.5rem; }
+.doc-pages a { padding: .3rem .7rem; font-weight: 600; font-size: .88rem; text-decoration: none; border: 1.5px solid var(--line); border-radius: 999px; }
+.doc-pages a[aria-current] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.doc-side-title { margin: 0 0 .5rem; font-weight: 800; }
+/* The table of contents as a line: each section a station, the one read lit. */
+.doc .omnidocs-toc > ul { position: relative; }
+.doc .omnidocs-toc > ul::before { content: ""; position: absolute; left: .45rem; top: .5rem; bottom: .5rem; width: 3px; background: var(--line); border-radius: 2px; }
+.doc .omnidocs-toc a { position: relative; padding: .3rem .5rem .3rem 1.6rem; border: 0; color: var(--soft); background: none; }
+.doc .omnidocs-toc > ul > li > a { color: var(--ink); }
+.doc .omnidocs-toc > ul > li > a::before { content: ""; position: absolute; left: .15rem; top: .62rem; width: .65rem; height: .65rem; background: var(--paper); border: 3px solid var(--ink); border-radius: 50%; }
+.doc .omnidocs-toc ul ul a { padding-left: 2.1rem; }
+.doc .omnidocs-toc a.is-current { color: var(--ink); font-weight: 700; background: var(--mark); border-radius: 0 999px 999px 0; }
+.doc .omnidocs-toc a.is-current::before, .doc .omnidocs-toc li.is-open > a::before { background: var(--signal); border-color: var(--ink); }
+.doc .omnidocs-toc small { color: var(--soft); font-weight: 400; }
+.doc-head { margin: 0 0 2rem; }
+.doc-kicker { margin: 0 0 .4rem; font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
+.doc-head h1 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.05; }
+.doc-lead { max-width: 46rem; color: var(--soft); }
+.prose { max-width: 50rem; overflow-wrap: break-word; }
+.prose h2 { margin: 3rem 0 .8rem; font-size: 1.65rem; font-weight: 800; letter-spacing: -.015em; line-height: 1.2; }
+.prose h3 { margin: 2.2rem 0 .6rem; font-size: 1.25rem; font-weight: 800; }
+.prose h4 { margin: 1.8rem 0 .5rem; font-size: 1.05rem; font-weight: 800; }
+.prose h2.doc-part-title { margin-top: 4rem; padding-top: 1.2rem; border-top: 4px solid var(--ink); font-size: 2rem; }
+.prose .doc-part-home > :first-child { margin-top: 0; }
+.prose .heading-anchor { margin-left: .4rem; text-decoration: none; }
+.prose .heading-anchor::after { content: "#"; color: var(--line); font-weight: 400; }
+.prose :is(h2, h3, h4):hover .heading-anchor::after { color: var(--signal); }
+.prose table { display: block; width: 100%; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: .92rem; }
+.prose th, .prose td { padding: .45rem .7rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.prose th { border-bottom: 2px solid var(--ink); white-space: nowrap; }
+.prose img { max-width: 100%; height: auto; }
+.prose .doc-code { margin: 1rem 0 1.2rem; }
+.prose blockquote { margin: 1.2rem 0; padding: .1rem 1rem; border-left: 4px solid var(--line); color: var(--soft); }
+.prose blockquote.doc-callout { padding: .8rem 1rem; color: var(--ink); background: var(--sheet); border-left-color: var(--signal); border-radius: 0 .5rem .5rem 0; }
+.prose blockquote.doc-callout::before { content: attr(data-label); display: block; margin-bottom: .2rem; font-weight: 800; }
+.prose .doc-version { display: inline-block; margin-left: .45rem; padding: 0 .45rem; font: 600 .62em/1.6 var(--mono); vertical-align: .3em; color: var(--on-signal); background: var(--signal); border-radius: 999px; letter-spacing: 0; }
+.prose .api-kind { margin-left: .35rem; font: 400 .72rem/1 var(--mono); color: var(--soft); vertical-align: middle; }
+.prose .api-declaration { margin: -.3rem 0 .6rem; font-size: .82rem; }
+.prose .api-source { color: var(--soft); }
+.prose .api-params dt { margin-top: .5rem; }
+.prose .api-params dd { margin-left: 1rem; }
+.prose h2 > code, .prose h3 > code { padding: 0; background: none; border: 0; font-size: .9em; }
+.part-edit { margin: 1.5rem 0 0; font-size: .85rem; }
+.part-edit a { color: var(--soft); text-decoration-color: var(--line); }
+.lost-in { padding: 6rem clamp(1rem, 4vw, 2.5rem); }
+.lost-in h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -.02em; margin: 0 0 1rem; }
+
+/* ---- omnidocs' palette, in the site's colours ----------------------------------------------- */
+.omnidocs-panel { border: 1.5px solid var(--ink); border-radius: .9rem; }
+.omnidocs-hit.is-active { background: var(--mark); outline: 0; }
+.omnidocs-hit mark { background: var(--mark); }
+.omnidocs-hit-kind { font-family: var(--mono); }
+
+/* ---- the footer ------------------------------------------------------------------------------- */
+.site-foot { border-top: 1px solid var(--line); }
+.site-foot-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem 2rem; max-width: 78rem; margin: 0 auto; padding: 2rem clamp(1rem, 4vw, 2.5rem); }
+.site-foot-sign { display: flex; align-items: center; gap: 1.25rem; }
+.site-foot-name { margin: 0; padding-left: 1.25rem; border-left: 2px dotted var(--line); line-height: 1.3; }
+.site-foot-name b { display: block; font-size: 1.15rem; }
+.site-foot-name span { font: 400 .8rem/1.4 var(--mono); color: var(--soft); }
+.site-foot-links { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin: 0; padding: 0; list-style: none; font-size: .92rem; }
+
+/* Transparent's progress bar, in the signal colour. */
+html.loading #loader, #loader { position: fixed; z-index: 90; }
+
+@media (prefers-reduced-motion: reduce) { .site-head, .line .station { transition: none; } }

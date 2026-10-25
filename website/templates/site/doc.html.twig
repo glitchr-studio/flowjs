@@ -1,0 +1,41 @@
+{#
+ # The manual or the API reference: one page (omnidocs' OnePage) beside a sidebar - the three pages of
+ # the documentation, then the table of contents, which sticks while the page scrolls and follows the
+ # reading (omnidocs.js: the section read marked, the address kept on it without filling the history).
+ # Each part says the file it is read from, to correct it on GitHub.
+ #}
+{% extends 'base.html.twig' %}
+
+{% set home = one.parts|first %}
+{% block title %}{{ title }} · Flow{% endblock %}
+{% block description %}{{ home ? home.page.excerpt(160) : title }}{% endblock %}
+{% block main_class %}doc is-{{ kind }}{% endblock %}
+
+{% block body %}
+<div class="wrap omnidocs-layout">
+    <aside class="omnidocs-sidebar doc-side" id="doc-side" data-omnidocs-toc-scroll aria-label="Contents">
+        <nav class="doc-pages" aria-label="The documentation">
+            <a href="{{ path('app_docs') }}"{% if kind == 'manual' %} aria-current="page"{% endif %}>Manual</a>
+            <a href="{{ path('app_api') }}"{% if kind == 'api' %} aria-current="page"{% endif %}>API reference</a>
+            <a href="{{ path('app_changelog') }}">Changelog</a>
+        </nav>
+        <p class="doc-side-title">On this page</p>
+        {% include '@Omnidocs/toc.html.twig' with {toc: one.toc(), label: 'On this page'} %}
+    </aside>
+
+    <article class="omnidocs-content doc-content">
+        <button type="button" class="omnidocs-toc-toggle" data-omnidocs-toc-toggle aria-controls="doc-side" aria-expanded="false">Contents</button>
+        <header class="doc-head">
+            <p class="doc-kicker">@glitchr/flowjs · read at <a href="{{ site.githubUrl }}/tree/{{ site.commit }}" rel="noopener"><code>{{ site.shortCommit }}</code></a></p>
+            <h1>{{ title }}</h1>
+            {% if kind == 'api' %}<p class="doc-lead">Read from the sources by JSDoc (<code>jsdoc -X src/js</code>): every function, method and property a module puts on its global, in the order of the source, each linked to its line. Uncommented functions show their signature alone; the options are described in the manual.</p>{% endif %}
+        </header>
+        <div class="prose">
+            {% for part in one.parts %}
+                {{ part.html|raw }}
+                {% if part.source %}<p class="part-edit"><a href="{{ site.githubUrl }}/edit/{{ site.branch }}/{{ part.source }}" rel="noopener">Correct this on GitHub <code>{{ part.source }}</code></a></p>{% endif %}
+            {% endfor %}
+        </div>
+    </article>
+</div>
+{% endblock %}

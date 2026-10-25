@@ -1,0 +1,13 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Not found · Flow{% endblock %}
+{% block main_class %}lost{% endblock %}
+{% block canonical %}{% endblock %}
+
+{% block body %}
+<section class="wrap lost-in">
+    <p class="doc-kicker">404</p>
+    <h1>No station at this address</h1>
+    <p>The page may have moved, or never existed. The <a href="{{ path('app_docs') }}">manual</a> holds everything on one page, and <kbd>/</kbd> searches it.</p>
+</section>
+{% endblock %}

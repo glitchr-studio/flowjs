@@ -1,0 +1,40 @@
+# The flowjs website, locally (ports of plan 0's table: 8134 the site as Symfony renders it, 8683 the
+# static export as GitHub Pages serves it):
+#
+#   docker compose run --rm build composer install      # once (and npm ci: bin/build does it)
+#   docker compose run --rm build bin/build             # JSDoc, Sass, assets, then the export into dist/
+#   docker compose up -d dev static                     # http://localhost:8134/ and http://localhost:8683/flowjs/
+#   docker compose run --rm build bin/phpunit           # the site's tests
+#   docker compose down
+name: flowjs-website
+
+x-build: &build
+  build: ./docker
+  image: flowjs-website-build
+  volumes:
+    - ..:/repo
+
+services:
+  build:
+    <<: *build
+    environment:
+      SITE_URL: ${SITE_URL:-http://localhost:8683/flowjs/}
+
+  dev:
+    <<: *build
+    command: ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+    environment:
+      APP_ENV: dev
+      SITE_URL: http://localhost:8134
+    ports:
+      - "127.0.0.1:8134:8000"
+
+  static:
+    image: nginx:1.27-alpine
+    environment:
+      BASE_PATH: /flowjs
+    volumes:
+      - ./dist:/srv/www/flowjs:ro
+      - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "127.0.0.1:8683:80"

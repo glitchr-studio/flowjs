@@ -1,0 +1,58 @@
+#!/bin/sh
+# The flowjs website, from a checkout of the repository (this folder is its website/):
+#
+#   bin/build assets     Node: JSDoc on src/js (var/jsdoc.json), Flow's stylesheets through Sass, jQuery,
+#                        the fonts, omnidocs' assets and Glitch Art's signature into public/
+#   bin/build export     PHP: every page exported by omnibridge/static into dist/ (--github-pages: for Pages)
+#   bin/build            both
+#
+# Environment: SITE_URL, the public address (https://glitchr-studio.github.io/flowjs/ for Pages; an
+# origin or a folder of one); FLOW_COMMIT, the commit built (git's HEAD by default).
+set -eu
+cd "$(dirname "$0")/.."
+step=${1:-all}
+[ $# -gt 0 ] && shift
+repo=$(cd .. && pwd)
+export FLOW_COMMIT="${FLOW_COMMIT:-$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo master)}"
+export SITE_URL="${SITE_URL:-http://localhost:8683/flowjs/}"
+# The commit of omniscient/omnibase whose signature partial the footer includes (never copied into this repository).
+OMNIBASE_REF=ce68ebcab0984e6c9bb18ae3df3ded0b87bfe4c4
+
+assets() {
+    [ -d node_modules ] || npm ci --no-audit --no-fund
+    mkdir -p var public/flow/js public/flow/css public/vendor public/fonts public/omnidocs public/bundles/base/css public/bundles/base/fonts var/omnibase/templates/partials
+    echo "== JSDoc (src/js)"
+    node_modules/.bin/jsdoc -X "$repo/src/js" > var/jsdoc.json
+    printf '%s' "$repo" > var/jsdoc.root
+    echo "== Flow's scripts and stylesheets (src/, at $FLOW_COMMIT)"
+    cp "$repo"/src/js/*.js public/flow/js/
+    mkdir -p public/flow/images && cp "$repo"/src/images/* public/flow/images/
+    node_modules/.bin/sass --no-source-map --style=compressed --load-path="$repo/src/css" "$repo/src/css/index.scss" public/flow/css/index.css
+    cp node_modules/jquery/dist/jquery.min.js public/vendor/jquery.min.js
+    for f in overpass/files/overpass-latin-400-normal overpass/files/overpass-latin-600-normal overpass/files/overpass-latin-800-normal overpass-mono/files/overpass-mono-latin-400-normal overpass-mono/files/overpass-mono-latin-600-normal; do
+        cp "node_modules/@fontsource/$f.woff2" public/fonts/
+    done
+    echo "== omnidocs' assets"
+    cp vendor/omniscient/omnidocs/assets/omnidocs.js vendor/omniscient/omnidocs/assets/omnidocs.css public/omnidocs/
+    echo "== Glitch Art's signature (omniscient/omnibase at $OMNIBASE_REF)"
+    raw="https://raw.githubusercontent.com/glitchr-studio/omnibase/$OMNIBASE_REF"
+    curl -fsSL "$raw/templates/partials/_credits.html.twig" -o var/omnibase/templates/partials/_credits.html.twig
+    curl -fsSL "$raw/public/css/credits.css" -o public/bundles/base/css/credits.css
+    curl -fsSL "$raw/public/fonts/Source%20Code%20Pro.woff2" -o "public/bundles/base/fonts/Source Code Pro.woff2"
+}
+
+export_site() {
+    export APP_ENV="${APP_ENV:-prod}" APP_DEBUG="${APP_DEBUG:-0}"
+    [ -f var/jsdoc.root ] && export JSDOC_ROOT="$(cat var/jsdoc.root)"
+    php bin/console cache:clear --no-warmup >/dev/null
+    echo "== export (omnibridge/static) to dist, at $SITE_URL"
+    php vendor/bin/omnibridge-static build static.php --out=dist --strict "$@"
+    php vendor/bin/omnibridge-static check dist
+}
+
+case "$step" in
+    assets) assets ;;
+    export) export_site "$@" ;;
+    all) assets; export_site "$@" ;;
+    *) echo "Usage: bin/build [assets|export|all] [omnibridge-static options]" >&2; exit 2 ;;
+esac
