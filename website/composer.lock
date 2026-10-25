@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "94e647856d69f97809ccc3e7df5ebb81",
+    "content-hash": "85e427a88f8b4faf00057ad80b2f73e5",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -532,11 +532,7 @@
                     "/Tests/"
                 ]
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Omnidocs\\Jsdoc\\Tests\\": "Tests/"
-                }
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -555,6 +551,10 @@
                 "jsdoc",
                 "omnidocs"
             ],
+            "support": {
+                "issues": "https://github.com/glitchr-studio/omnidocs-jsdoc/issues",
+                "source": "https://github.com/glitchr-studio/omnidocs-jsdoc/tree/1.x"
+            },
             "time": "2026-10-25T14:24:27+00:00"
         },
         {
@@ -595,11 +595,7 @@
                     "/Tests/"
                 ]
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Omnidocs\\Markdown\\Tests\\": "Tests/"
-                }
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -619,6 +615,10 @@
                 "markdown",
                 "omnidocs"
             ],
+            "support": {
+                "issues": "https://github.com/glitchr-studio/omnidocs-markdown/issues",
+                "source": "https://github.com/glitchr-studio/omnidocs-markdown/tree/1.x"
+            },
             "time": "2026-10-25T14:01:23+00:00"
         },
         {
@@ -663,11 +663,7 @@
                     "/docker/"
                 ]
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Omnidocs\\Tests\\": "Tests/"
-                }
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -691,6 +687,10 @@
                 "sphinx",
                 "static site"
             ],
+            "support": {
+                "issues": "https://github.com/glitchr-studio/omnidocs/issues",
+                "source": "https://github.com/glitchr-studio/omnidocs/tree/1.x"
+            },
             "time": "2026-10-25T14:24:27+00:00"
         },
         {
