@@ -20,7 +20,7 @@ OMNIBASE_REF=ce68ebcab0984e6c9bb18ae3df3ded0b87bfe4c4
 
 assets() {
     [ -d node_modules ] || npm ci --no-audit --no-fund
-    mkdir -p var public/flow/js public/flow/css public/vendor public/fonts public/omnidocs public/bundles/base/css public/bundles/base/fonts var/omnibase/templates/partials
+    mkdir -p var public/flow/js public/flow/css public/vendor public/fonts public/omnidocs public/bundles/base/css public/bundles/base/fonts templates/omnibase/partials
     echo "== JSDoc (src/js)"
     node_modules/.bin/jsdoc -X "$repo/src/js" > var/jsdoc.json
     printf '%s' "$repo" > var/jsdoc.root
@@ -36,7 +36,7 @@ assets() {
     cp vendor/omniscient/omnidocs/assets/omnidocs.js vendor/omniscient/omnidocs/assets/omnidocs.css public/omnidocs/
     echo "== Glitch Art's signature (omniscient/omnibase at $OMNIBASE_REF)"
     raw="https://raw.githubusercontent.com/glitchr-studio/omnibase/$OMNIBASE_REF"
-    curl -fsSL "$raw/templates/partials/_credits.html.twig" -o var/omnibase/templates/partials/_credits.html.twig
+    curl -fsSL "$raw/templates/partials/_credits.html.twig" -o templates/omnibase/partials/_credits.html.twig
     curl -fsSL "$raw/public/css/credits.css" -o public/bundles/base/css/credits.css
     curl -fsSL "$raw/public/fonts/Source%20Code%20Pro.woff2" -o "public/bundles/base/fonts/Source Code Pro.woff2"
 }
