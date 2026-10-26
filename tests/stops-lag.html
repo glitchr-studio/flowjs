@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  StickyStops under a scroll position told late (1.5.4), as iOS Safari tells it: its page is scrolled
+  by another process, which reports the position back a frame or more after a script set it. Read
+  inside the frame that set it, window.scrollY is the new position; read in the next frames, it may
+  still be one the glide went through. The glide is not taken for the reader's then: with 1.5.3 it
+  gave up at the first frame that moved more than 2px, and the rest that followed glided again from
+  there - the page went to its stop by 10-20px steps for seconds. Here the page's scrollY is the
+  real position of 40ms ago, but in the task that scrolled it.
+  Opened by tests/run.mjs in a headless browser; the page writes its verdict in #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>stops lag</title>
+<style>
+    html { scroll-behavior: auto; }
+    body { margin: 0; }
+    section { height: 100vh; }
+    #result { position: fixed; top: 0; left: 0; margin: 0; }
+</style>
+</head>
+<body>
+<section id="a" class="sticky-stop"></section>
+<section id="b" class="sticky-stop"></section>
+<section id="c" class="sticky-stop"></section>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script>
+    // The position as the page reads it: the one of LAG ms ago, but in the task that scrolled.
+    (function () {
+        var LAG = 40;
+        var real = Object.getOwnPropertyDescriptor(window, 'scrollY').get;
+        var seen = [];
+        var fresh = false;
+        function note() { seen.push({ at: performance.now(), top: real.call(window) }); if (seen.length > 200) seen.shift(); }
+        (function sample() { note(); requestAnimationFrame(sample); })();
+        var scrollTo = window.scrollTo;
+        window.scrollTo = function () {
+            scrollTo.apply(window, arguments);
+            note();
+            fresh = true;
+            setTimeout(function () { fresh = false; }, 0);
+        };
+        function told() {
+            if (fresh) return real.call(window);
+            var then = performance.now() - LAG;
+            for (var i = seen.length - 1; i >= 0; i--) if (seen[i].at <= then) return seen[i].top;
+            return seen.length ? seen[0].top : real.call(window);
+        }
+        Object.defineProperty(window, 'scrollY', { configurable: true, get: told });
+        Object.defineProperty(window, 'pageYOffset', { configurable: true, get: told });
+        window.realY = function () { return Math.round(real.call(window)); };
+    })();
+</script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/stops.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var SETTLE = 60;
+        var top = function (id) { return Math.round(document.getElementById(id).getBoundingClientRect().top + realY()); };
+
+        var stops = StickyStops.attach(window, { settle: SETTLE, duration: 400, reach: 140 });
+        var glides = 0;
+        document.addEventListener('sticky:stop', function () { glides++; });
+        await H.frame();
+
+        // A rest 120px short of b, heading down: one glide to b, all the way.
+        H.scroll(top('b') - 120);
+        await H.after(30);
+        H.scroll(top('b') - 100);
+        await H.until(function () { return glides > 0; }, 2000);
+        await H.after(400 + SETTLE * 4);
+        H.check(H.near(realY(), top('b'), 2), 'a glide told its position late arrives at its stop', realY() + ' vs ' + top('b'));
+        H.check(glides === 1, 'in one glide', glides + ' glides');
+
+        // The reader taking the page elsewhere during a glide (a wheel: a finger, on a phone) still takes it.
+        glides = 0;
+        H.scroll(top('c') - 120);
+        await H.after(30);
+        H.scroll(top('c') - 100);
+        await H.until(function () { return glides > 0; }, 2000);
+        await H.after(120);
+        document.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -600 }));
+        H.scroll(top('a') + 60);
+        await H.after(400 + SETTLE * 4);
+        H.check(Math.abs(realY() - top('c')) > 200, 'a scroll elsewhere during a glide is the reader\'s', realY() + ' vs ' + top('c'));
+
+        H.done();
+    })();
+</script>
+</body>
+</html>
