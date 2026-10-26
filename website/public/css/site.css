@@ -127,11 +127,12 @@ kbd { display: inline-block; padding: 0 .4em; font-size: .82em; line-height: 1.5
 
 .demo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: start; }
 .demo-head { grid-column: 1 / -1; max-width: 48rem; }
-.demo-module { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 .6rem; font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
+.demo-module { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 clamp(.9rem, 1.5vw, 1.25rem); font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
 .demo-module .station, .demo-head .station { display: inline-block; width: .95rem; height: .95rem; background: var(--signal); border: 3px solid var(--ink); border-radius: 50%; }
 .demo-module a { color: var(--soft); }
-.demo-head h2 { margin: 0 0 .75rem; font-size: clamp(1.8rem, 3.6vw, 2.8rem); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
+.demo-head h2 { margin: .1em 0 .75rem; font-size: clamp(1.8rem, 3.6vw, 2.8rem); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
 .demo-head p { margin: 0; color: var(--soft); }
+.demo-head .demo-module, .scene-copy .demo-module { margin-bottom: clamp(.9rem, 1.6vw, 1.25rem); }
 .demo { min-width: 0; padding: 1.25rem; background: var(--sheet); border: 1.5px solid var(--ink); border-radius: .9rem; }
 .demo-code { min-width: 0; }
 .demo-code .doc-code { margin: 0 0 1rem; }
@@ -200,7 +201,7 @@ kbd { display: inline-block; padding: 0 .4em; font-size: .82em; line-height: 1.5
 .doc .omnidocs-toc a.is-current::before, .doc .omnidocs-toc li.is-open > a::before { background: var(--signal); border-color: var(--ink); }
 .doc .omnidocs-toc small { color: var(--soft); font-weight: 400; }
 .doc-head { margin: 0 0 2rem; }
-.doc-kicker { margin: 0 0 .4rem; font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
+.doc-kicker { margin: 0 0 clamp(.75rem, 1.2vw, 1rem); font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
 .doc-head h1 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -.025em; line-height: 1.05; }
 .doc-lead { max-width: 46rem; color: var(--soft); }
 .prose { max-width: 50rem; overflow-wrap: break-word; }
@@ -251,3 +252,108 @@ kbd { display: inline-block; padding: 0 .4em; font-size: .82em; line-height: 1.5
 html.loading #loader, #loader { position: fixed; z-index: 90; }
 
 @media (prefers-reduced-motion: reduce) { .site-head, .line .station { transition: none; } }
+
+/* ---- round 2: the features at their size --------------------------------------------------- */
+.demo-lead { margin: 0; max-width: 46rem; color: var(--soft); font-size: clamp(1.02rem, 1.4vw, 1.15rem); }
+.feature.is-major { background: var(--sheet); border-bottom: 1px solid var(--line); }
+.feature.is-major .demo-head h2 { font-size: clamp(2.1rem, 4.6vw, 3.4rem); }
+.gets { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.25rem 0 1.75rem; padding: 0; list-style: none; }
+.gets li { padding: .45rem .8rem; font-size: .92rem; background: var(--paper); border: 1px solid var(--line); border-radius: .6rem; }
+.gets.is-compact { display: grid; gap: .6rem; margin: 0 0 1rem; }
+.gets.is-compact li { background: var(--sheet); }
+.feature-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
+.demo-card { min-width: 0; padding: 1.25rem; background: var(--paper); border: 1.5px solid var(--ink); border-radius: .9rem; }
+.demo-card h3 { margin: 0 0 .9rem; font-size: 1.3rem; font-weight: 800; }
+.demo-card .doc-code { margin: 1rem 0 0; }
+.demo-card.is-wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.demo-card.is-wide h3 { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 64rem) { .feature-grid, .demo-card.is-wide { grid-template-columns: minmax(0, 1fr); } }
+.switch { display: inline-flex; margin: 0 0 .9rem; padding: .2rem; background: var(--sheet); border: 1px solid var(--line); border-radius: 999px; }
+.switch button { padding: .35rem .9rem; font: 600 .9rem/1.2 var(--font); color: var(--soft); background: none; border: 0; border-radius: 999px; cursor: pointer; }
+.switch button[aria-pressed="true"] { color: var(--paper); background: var(--ink); }
+.switch button[data-bar-look="rainbow"][aria-pressed="true"] { color: #16181b; background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #5ac8fa, #007aff, #af52de); }
+.bar-timeline { display: block; min-height: 2.6rem; margin: 0 0 .8rem; padding: .55rem .75rem; font: 400 .82rem/1.5 var(--mono); background: var(--sheet); border: 1px solid var(--line); border-radius: .4rem; overflow-wrap: anywhere; }
+:root.bar-rainbow {
+    --transparent-bar-height: 4px;
+    --transparent-bar-background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #5ac8fa, #007aff, #af52de, #ff3b30);
+    --transparent-bar-size: 200% 100%;
+    --transparent-bar-duration: 1.4s;
+    --transparent-bar-done: linear-gradient(90deg, #ff3b30, #ffcc00, #34c759, #007aff, #af52de);
+}
+:root { --transparent-bar-color: var(--signal); }
+
+/* The framed browser (FlowFrame). */
+.browser { min-width: 0; overflow: hidden; background: var(--sheet); border: 1.5px solid var(--ink); border-radius: .8rem; box-shadow: 0 .8rem 2rem rgb(0 0 0 / .08); }
+.browser-bar { position: relative; display: flex; align-items: center; gap: .4rem; padding: .5rem .6rem; background: var(--paper); border-bottom: 1px solid var(--line); }
+.browser-dots { display: inline-flex; gap: .3rem; margin-right: .3rem; }
+.browser-dots i { width: .65rem; height: .65rem; border-radius: 50%; background: var(--line); }
+.browser-dots i:first-child { background: var(--signal); }
+.browser-bar button { width: 2rem; height: 2rem; font: 600 1rem/1 var(--font); color: var(--ink); background: var(--sheet); border: 1px solid var(--line); border-radius: .4rem; cursor: pointer; }
+.browser-bar button:disabled { color: var(--line); cursor: default; }
+.browser-bar input { flex: 1; min-width: 0; height: 2rem; padding: 0 .7rem; font: 400 .85rem/1 var(--mono); color: var(--ink); background: var(--sheet); border: 1px solid var(--line); border-radius: 999px; }
+.browser.flow-frame-loading .browser-bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: linear-gradient(90deg, transparent, var(--signal), transparent); background-size: 50% 100%; background-repeat: repeat-y; animation: transparent-bar 1s linear infinite; }
+.browser-view { height: 21rem; overflow: auto; padding: 1.25rem; overscroll-behavior: contain; }
+.mini-page h1 { margin: .4rem 0 .6rem; font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; }
+.mini-page p { color: var(--soft); }
+.mini-stations { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: 0 0 .5rem; font-size: .88rem; }
+.mini-stations a { display: inline-flex; align-items: center; gap: .35rem; text-decoration: none; color: var(--soft); }
+.mini-stations a[aria-current] { color: var(--ink); font-weight: 700; }
+.mini-stations .station { width: .7rem; height: .7rem; border: 2.5px solid var(--ink); border-radius: 50%; background: var(--paper); }
+.mini-stations a[aria-current] .station { background: var(--signal); }
+.frame-side .doc-code { margin-top: 1rem; }
+.frame-standalone { padding: 2rem clamp(1rem, 4vw, 2.5rem) 4rem; max-width: 48rem; }
+
+/* The scene: a device that turns and opens as the page scrolls (StickyScenes). */
+.sticky-scene[data-scene-reduced] .sticky-scene-stage { height: auto; min-height: 100svh; }
+.scene-showcase { border-bottom: 1px solid var(--line); background: radial-gradient(ellipse at 70% 55%, var(--sheet), var(--paper) 70%); }
+.scene-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: 2rem; height: 100%; max-width: 78rem; margin: 0 auto; padding: calc(var(--head) + 1rem) clamp(1rem, 4vw, 2.5rem) 2rem; }
+.scene-copy h2 { margin: 0 0 .75rem; font-size: clamp(2rem, 4.4vw, 3.3rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
+.scene-steps { display: grid; gap: .6rem; margin: 1.25rem 0 1rem; padding: 0; list-style: none; }
+.scene-card { --k: 0; display: grid; gap: .15rem; padding: .7rem .9rem; background: var(--sheet); border: 1px solid var(--line); border-left: 5px solid var(--signal); border-radius: .5rem; opacity: var(--k); transform: translateX(calc((1 - var(--k)) * -115%)); }
+.scene-card span { font-size: .9rem; color: var(--soft); }
+.scene-card.is-1 { --k: clamp(0, calc((var(--scene-progress, 0) - .04) / .16), 1); }
+.scene-card.is-2 { --k: clamp(0, calc((var(--scene-progress, 0) - .3) / .16), 1); }
+.scene-card.is-3 { --k: clamp(0, calc((var(--scene-progress, 0) - .62) / .16), 1); }
+.scene-meter { font: 600 .85rem/1.4 var(--mono); color: var(--soft); }
+.scene-object { display: grid; place-items: center; perspective: 1400px; perspective-origin: 50% 30%; min-height: 0; }
+.laptop {
+    --w: min(30rem, 74vw);
+    --p: var(--scene-progress, 0);
+    --open: clamp(0, calc((var(--p) - .3) / .32), 1);
+    position: relative; width: var(--w); height: calc(var(--w) * .62);
+    transform-style: preserve-3d;
+    transform: translateY(calc(var(--w) * -.05)) rotateX(calc(-30deg + var(--p) * 18deg)) rotateY(calc(-42deg + var(--p) * 42deg)) translateX(calc((1 - min(1, var(--p) * 3)) * 22%));
+}
+.laptop-base, .laptop-lid { position: absolute; left: 0; width: 100%; height: 100%; transform-style: preserve-3d; border-radius: .7rem; }
+/* The hinge is the container's bottom edge: the base hangs from it, turned flat towards the reader, its keys
+   up; the lid stands on it, closed flat over the keys at first (its screen down), open from the scene's
+   second step. */
+.laptop-base { top: 100%; transform-origin: 50% 0; transform: rotateX(90deg); background: linear-gradient(180deg, #d7d9dd, #b9bcc2); box-shadow: 0 0 0 1px rgb(0 0 0 / .12) inset; }
+.laptop-keys { position: absolute; left: 8%; right: 8%; top: 7%; height: 46%; border-radius: .3rem; background: repeating-linear-gradient(90deg, #2a2d32 0 7%, transparent 7% 7.8%), repeating-linear-gradient(180deg, transparent 0 14%, #b9bcc2 14% 17%); background-color: #2a2d32; opacity: .9; }
+.laptop-pad { position: absolute; left: 34%; right: 34%; top: 60%; height: 30%; border-radius: .4rem; background: #c6c9ce; box-shadow: 0 0 0 1px rgb(0 0 0 / .12) inset; }
+.laptop-lid { bottom: 0; transform-origin: 50% 100%; transform: translateY(-3px) rotateX(calc(-90deg + var(--open) * 100deg)); }
+.laptop-screen, .laptop-back { position: absolute; inset: 0; border-radius: .7rem; backface-visibility: hidden; }
+.laptop-screen { padding: 4%; background: #111317; box-shadow: 0 0 0 2px #2d3036 inset; }
+.laptop-back { display: grid; place-items: center; transform: rotateX(180deg); background: linear-gradient(135deg, #e3e5e8, #b4b7bd); }
+.laptop-back span { font: 800 1.4rem/1 var(--font); color: rgb(0 0 0 / .25); }
+.mini-site { position: relative; display: grid; align-content: start; gap: .5rem; height: 100%; padding: 6% 7%; background: #f6f6f2; border-radius: .25rem; color: #16181b; opacity: calc(var(--open) * 1.2 - .2); }
+.mini-site .mini-bar { position: absolute; left: 0; top: 0; height: 3px; width: calc(var(--open) * 100%); background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #5ac8fa, #007aff, #af52de); }
+.mini-site svg { width: 28%; overflow: visible; }
+.mini-site svg path { stroke: #16181b; stroke-width: 3; }
+.mini-site svg circle { fill: #f6f6f2; stroke: #16181b; stroke-width: 3; }
+.mini-site svg circle:nth-of-type(2) { fill: #f2b000; stroke: #f2b000; }
+.mini-site b { font-size: clamp(.9rem, 2.2vw, 1.6rem); font-weight: 800; }
+.mini-site i { display: block; height: .45rem; width: 80%; background: #d5d6d0; border-radius: 999px; }
+.mini-site i.is-short { width: 50%; background: #f2b000; }
+@media (max-width: 52rem) {
+    .scene-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: .5rem; padding-top: calc(var(--head) + .5rem); }
+    .scene-object { order: -1; height: 38svh; }
+    .laptop { --w: min(18rem, 62vw); }
+    .scene-copy h2 { font-size: 1.7rem; }
+    .scene-copy .demo-lead { font-size: .92rem; }
+    .scene-steps { gap: .35rem; margin: .6rem 0; }
+    .scene-card { padding: .45rem .7rem; }
+    .scene-card span { font-size: .8rem; }
+}
+.demo-grid.is-code { align-items: start; }
+.demo-grid.is-code .doc-code { margin: 1rem 0 0; }

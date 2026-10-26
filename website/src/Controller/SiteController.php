@@ -61,6 +61,16 @@ final class SiteController extends AbstractController
         return new JsonResponse(['module' => 'Ajaxer', 'channel' => 'demo', 'message' => 'Answered by a static file: GET, throttled, its loader shown while it travels.']);
     }
 
+    /**
+     * The pages the website-in-website demo browses inside its frame (FlowFrame): pages of the site,
+     * each with its [data-flow-frame-page] block - what the frame shows of them.
+     */
+    #[Route('/demo/frame/{page}/', name: 'app_demo_frame', requirements: ['page' => 'departure|line|terminus'], methods: ['GET'])]
+    public function frame(string $page): Response
+    {
+        return $this->render('site/frame_page.html.twig', ['page' => $page]);
+    }
+
     /** The page for unknown addresses: 404.html in the export. */
     #[Route('/not-found', name: 'app_not_found', methods: ['GET'])]
     public function notFound(): Response

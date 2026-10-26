@@ -2,8 +2,6 @@ twig:
     file_name_pattern: '*.twig'
     strict_variables: true
     paths:
-        # omnidocs' partials: the table of contents of a one-page manual, the search button.
-        '%kernel.project_dir%/vendor/omniscient/omnidocs/Bridge/Twig/templates': Omnidocs
         # Glitch Art's signature, omnibase's own partial, fetched by bin/build at a pinned commit into
         # templates/omnibase (kept out of git but for its .gitkeep: the folder Twig is given must exist
         # on a fresh checkout, before bin/build ran).

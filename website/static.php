@@ -30,7 +30,12 @@ return static function (array $host): Site {
     $routes = $kernel->getContainer()->get('router')->getRouteCollection();
 
     return (new Site($static))
-        ->provide(new RouteCollectionProvider($routes, exclude: ['app_not_found'], actions: ['App\Controller\\']))
+        ->provide(new RouteCollectionProvider(
+            $routes,
+            parameters: ['app_demo_frame' => static fn (): array => [['page' => 'departure'], ['page' => 'line'], ['page' => 'terminus']]],
+            exclude: ['app_not_found'],
+            actions: ['App\Controller\\'],
+        ))
         ->renderWith(new RequestRenderer(static fn (Request $request) => $kernel->handle($request), $origin))
         ->publicDir($root.'/public')
         // What the scripts fetch: the search index, the Ajaxer demo's answer - followed, and moved under the folder.

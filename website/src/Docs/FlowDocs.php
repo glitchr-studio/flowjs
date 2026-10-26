@@ -29,7 +29,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 class FlowDocs
 {
     /** The modules, in the README's order. */
-    public const MODULES = ['navigation', 'sticky', 'sortable', 'ajaxer', 'cookie'];
+    public const MODULES = ['core', 'navigation', 'sticky', 'scenes', 'sortable', 'ajaxer', 'cookie', 'testing'];
 
     private ?Registry $registry = null;
 
@@ -116,7 +116,7 @@ class FlowDocs
             'api' => ['factory' => 'jsdoc', 'options' => [
                 'file' => $this->jsdocFile,
                 'root' => $this->jsdocRoot,
-                'order' => ['Flow', 'Transparent', 'Sticky', 'StickyStops', 'StickySortable', 'Ajaxer', 'Cookie'],
+                'order' => ['Flow', 'Transparent', 'FlowFrame', 'Sticky', 'StickyStops', 'StickyScenes', 'StickySortable', 'Ajaxer', 'Cookie'],
             ]],
         ]);
     }

@@ -16,11 +16,19 @@ final class SiteTest extends WebTestCase
         $crawler = $client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorCount(8, 'section.sticky-stop', 'the page is a line of stops');
-        foreach (['stops', 'navigation', 'sticky', 'sortable', 'ajaxer', 'cookie'] as $demo) {
-            self::assertSelectorExists('#'.$demo.' .demo');
+        self::assertSelectorCount(10, 'section.sticky-stop', 'the page is a line of stations');
+        foreach (['navigation', 'sticky', 'stops', 'scenes', 'sortable', 'ajaxer', 'cookie'] as $feature) {
+            self::assertSelectorExists('section#'.$feature, $feature.': a station of its own');
+            self::assertSelectorExists('.line a[href="#'.$feature.'"]', $feature.': on the line map');
+        }
+        foreach (['stops', 'sticky', 'sortable', 'ajaxer', 'cookie'] as $demo) {
             self::assertSelectorExists('#'.$demo.' .demo-code .doc-code', $demo.': its code beside it');
         }
+        self::assertSelectorCount(3, '#navigation .demo-card', 'navigation: the counter, the bar, the website in the website');
+        self::assertSelectorExists('#navigation [data-flow-frame] [data-flow-frame-view] [data-flow-frame-page]', 'the framed browser shows its first page');
+        self::assertSelectorExists('[data-bar-look="rainbow"]');
+        self::assertSelectorExists('section#scenes.sticky-scene[data-scene-length] .sticky-scene-stage .laptop', 'the scene: a device on a pinned stage');
+        self::assertSelectorExists('#scenes-code .doc-code');
         self::assertSelectorExists('[data-stops-scroller] .sticky-stop.is-tall');
         self::assertSelectorExists('[data-sticky-axis="x"]');
         self::assertSelectorExists('[data-omnidocs-search="/search.json"]', 'the search, its index');
@@ -79,6 +87,16 @@ final class SiteTest extends WebTestCase
         self::assertStringContainsString('href="https://github.com/glitchr-studio/flowjs/blob/', $html, 'each entry links to its line');
         $client->request('GET', '/search.json');
         self::assertContains('StickyStops.attach', array_column(json_decode((string) $client->getResponse()->getContent(), true)['entries'], 't'));
+    }
+
+    public function testTheFramesPagesAreSitePagesWithTheirBlock(): void
+    {
+        $client = static::createClient();
+        foreach (['departure', 'line', 'terminus'] as $page) {
+            $client->request('GET', '/demo/frame/'.$page.'/');
+            self::assertResponseIsSuccessful();
+            self::assertSelectorExists('[data-flow-frame-page] .mini-page.is-'.$page);
+        }
     }
 
     public function testAnUnknownAddressIsTheSitesOwnPage(): void

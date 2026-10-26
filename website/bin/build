@@ -33,7 +33,8 @@ assets() {
         cp "node_modules/@fontsource/$f.woff2" public/fonts/
     done
     echo "== omnidocs' assets"
-    cp vendor/omniscient/omnidocs/assets/omnidocs.js vendor/omniscient/omnidocs/assets/omnidocs.css public/omnidocs/
+    omnidocs=$(php -r 'require "vendor/autoload.php"; echo dirname((new ReflectionClass(Omnidocs\Registry::class))->getFileName());')
+    cp "$omnidocs/assets/omnidocs.js" "$omnidocs/assets/omnidocs.css" public/omnidocs/
     echo "== Glitch Art's signature (omniscient/omnibase at $OMNIBASE_REF)"
     raw="https://raw.githubusercontent.com/glitchr-studio/omnibase/$OMNIBASE_REF"
     curl -fsSL "$raw/templates/partials/_credits.html.twig" -o templates/omnibase/partials/_credits.html.twig
