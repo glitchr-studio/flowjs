@@ -1,3 +1,8 @@
+---
+title: Cookie
+order: 60
+---
+
 # Cookie
 
 `src/js/cookie.js` - what a site keeps in the visitor's browser, and the
@@ -26,6 +31,27 @@ erased.
 **No sentence is written in the library.** Every word the visitor reads comes
 from the configuration (`texts`, the categories' `label` and `description`) or
 from the site's own HTML.
+
+## Loading
+
+| Entry | Loads |
+|---|---|
+| `import '@glitchr/flowjs/cookie'` | `src/js/core.js` and `src/js/cookie.js`; no stylesheet |
+| `import '@glitchr/flowjs'` | every module, this one included (still no cookie stylesheet) |
+| `<script src="src/js/cookie.js">` | after `src/js/core.js`; jQuery is not needed |
+| `@import '@glitchr/flowjs/src/css/cookie.scss'` | the optional minimal look, see [The stylesheet](#the-stylesheet) |
+
+The script throws `cookie.js: load core.js first` without the core. It sets `window.Cookie` and
+`Flow.cookie` (the same object) and exports it to CommonJS. Loaded twice (two bundles of one
+page), the second copy keeps the first `Cookie` (`Cookie.flow === true`): one answer, one banner.
+`Cookie.version` is the library's version (`Flow.version`).
+
+Nothing is shown before the site declares a category: `Cookie.ready()` without categories, or no
+call at all, shows no banner and binds no click. The module works at each moment of a page, as
+the core gives them (`Flow.onPage`: the document parsed, the window's `load`, and every
+`transparent:load` of the navigation): it reads the page's configuration blocks, then, once
+`Cookie.ready()` has been called, wakes or puts to sleep the inert elements, keeps the banner
+in the page and shows it while an answer is wanted.
 
 ## A site's configuration
 
@@ -147,7 +173,7 @@ the `config` option says (a selector: `config: 'script[data-settings]'`).
 
 ```js
 Cookie.category('chat', { label: 'La messagerie', storage: [{ type: 'cookie', name: 'crisp-client*' }] });
-Cookie.category('chat');     // {key, label, description, default, required, storage, features, state, granted}
+Cookie.category('chat');     // {key, label, description, default, required, onDemand, storage, features, state, granted}
 Cookie.categories();         // every category listed, in order
 Cookie.state('chat');        // true | false | null (no answer)
 Cookie.granted('chat');      // what a script should do now: the answer, else the default
@@ -202,6 +228,32 @@ Cookie.session.set('position', {lat: 48.58, lng: 7.75});          // an object i
   on the host's parent domains), the `localStorage` and `sessionStorage`
   entries.
 
+| Method | Returns | Effect |
+|---|---|---|
+| `Cookie.cookies.get(name)` | the value (URI-decoded), or `null` | `null` too when the cookie is absent, undeclared (with `undeclared: 'deny'`) or its category not granted |
+| `Cookie.cookies.set(name, value, options)` | `true`, or `false` when refused | writes `name=value` (`encodeURIComponent`; an object as JSON). `options`: `path`, `domain`, `sameSite`, `secure`, `duration` - each, when not given, from the entry's declaration, else from the `cookie` option; the lifetime from the duration (`max-age` and `expires`), none for `session` or no duration |
+| `Cookie.cookies.remove(name, options)` | `true` | erases the cookie whatever the answer, on `options.path` / `options.domain`, else the declared ones, on `/`, on the page's path, on the host and its parent domains |
+| `Cookie.local.get(name)`, `Cookie.session.get(name)` | the string kept, or `null` | an object written as JSON comes back as its JSON text: `JSON.parse()` it |
+| `Cookie.local.set(name, value)`, `Cookie.session.set(name, value)` | `true`, or `false` | `false` too when the storage is closed (a private window) or full |
+| `Cookie.local.remove(name)`, `Cookie.session.remove(name)` | `true` | removes the entry whatever the answer |
+
+`Cookie.storage(entry | list)` declares at any time (returns `Cookie`); an entry is the same as
+an earlier one when its type, name and category are, and is then completed. A name declared
+twice under two categories answers to the first declared.
+
+The durations (`duration`, `record.lifetime`, `countdown`) are read by `Cookie.seconds(value)`,
+in seconds:
+
+| Written | Seconds |
+|---|---|
+| a number | as it is (`10` is 10 s) |
+| `"45min"`, `"45m"` | minutes |
+| `"12h"`, `"30d"`, `"2w"` | hours, days, weeks |
+| `"13mo"` | months of 30 days |
+| `"1y"` | years of 365 days |
+| `"10s"`, `"250ms"`, `"1.5"` | through the core's `Flow.parseDuration`: seconds |
+| `"session"`, `""`, `null`, `false`, anything unreadable | `null`: no lifetime (a cookie for the session; no countdown) |
+
 A script that writes with `document.cookie` or `localStorage` itself is not
 stopped by the library: have it wait for its category with `Cookie.use()`.
 
@@ -219,7 +271,7 @@ shape of omnibase/consent's `Consent.use(name, options, onEnable, onDisable)`,
 whose `implicit` (for `default`) and `erase` (name prefixes of cookies) are
 understood too. `options.feature` (a name, or `{name, label}`) adds the
 feature to the category's list, in the detailed section.
-`Cookie.unuse(category, onGrant)` takes it back.
+`Cookie.unuse(category, onGrant, onRevoke)` takes them back.
 
 The order of the scripts does not matter: a feature registered before its
 category is declared follows the declaration when it comes - `onGrant` runs
@@ -239,6 +291,23 @@ They are looked for when the page is loaded, after every page the navigation
 swaps in, at each answer, by `Cookie.scan(root)`, and continuously with
 `observe: true` (a `MutationObserver`, for pages built by scripts).
 
+An element woken gets `data-cookie-active` (a woken element is not woken twice). A script is
+replaced by a new `<script>` that takes every attribute of the inert one but `type`, `data-src`
+and `data-type`, its `type` from `data-type` (none: a classic script), its `src` from
+`data-src`, and its inline text. A `<template>` puts a copy of its content just before itself,
+and takes those nodes away at the withdrawal. Any other element gets `src` from its
+`data-cookie-src` (and loses it at the withdrawal). A placeholder whose category is not declared
+stays shown. A `data-cookie-category` naming a category the site has not declared declares it,
+on demand: listed in the detailed section from then on, never a reason to ask.
+
+```html
+<script type="text/plain" data-cookie-category="analytics" data-type="module">
+    import { start } from '/js/stats.js'; start();
+</script>
+<iframe data-cookie-category="videos" data-cookie-src="https://www.youtube-nocookie.com/embed/xyz" title="The video"></iframe>
+<p data-cookie-placeholder="videos">The video shows once "videos" is allowed. <button type="button" data-cookie-open>Choose</button></p>
+```
+
 ## Events
 
 On `window`:
@@ -252,6 +321,30 @@ On `window`:
 | `cookie:confirm`, `cookie:deny`, `cookie:check` | `Cookie.refresh()`, as in `@glitchr/cookie` | |
 
 `Cookie.onConsent(fn)` listens to the first.
+
+Every event is dispatched on `window`, does not bubble and cannot be cancelled. In detail:
+
+| Event | Dispatched | `detail` |
+|---|---|---|
+| `cookie:consent` | after every kept answer (a button, `Cookie.save()`, `accept()`, `refuse()`, `grant()`, `revoke()`, `setConsent()` on a category, the countdown, a click outside, a signal) and after `Cookie.forget()`; after the features and the inert elements were told | `categories`: every declared category by key, `true` when granted now; `granted`, `revoked`: the keys that changed; `source`; `pending`: whether an answer is still wanted |
+| `cookie:grant`, `cookie:revoke` | for each category whose state changed, after its `onGrant` or `onRevoke` functions ran; also when a declaration changes the state of a category a feature waits for | `{category}`: its key, as declared |
+| `cookie:open` | the banner or the detailed section shows, or one replaces the other | `{view}`: `banner` or `details` |
+| `cookie:close` | it is closed, or the detailed section is left for the question | `{view}`: the view that closed |
+| `cookie:ready` | at each `Cookie.ready()` | none (a plain `Event`) |
+| `cookie:confirm` / `cookie:deny` | at each `Cookie.ready()` and after each answer (`Cookie.refresh()`): `confirm` when at least one group (every declared category is one) is not refused - granted, or without an answer -, `deny` when every one is refused or there is none | none |
+| `cookie:check` | only for `Cookie.refresh(null)` with no consent counted | none |
+
+`Cookie.onConsent(fn)` calls `fn(detail, event)`; `Cookie.onConfirm(fn)`, `onDeny(fn)` and
+`onCheck(fn)` add `fn` as a listener of their event. Each returns `Cookie`.
+
+```js
+window.addEventListener('cookie:revoke', function (event) {
+    if (event.detail.category === 'analytics') window._paq = [];
+});
+Cookie.onConsent(function (detail) {
+    navigator.sendBeacon('/consent-log', JSON.stringify({ categories: detail.categories, source: detail.source }));
+});
+```
 
 ## The interface
 
@@ -324,9 +417,182 @@ The parts are found by attribute, wherever they are in the banner:
 The prefix is an option (`prefix: 'data-consent'`), and each name too
 (`hooks: {category: 'data-consent-script'}`).
 
+Every attribute the module reads or sets, by its `hooks` name (the attribute is `hooks[name]`
+when given, else `prefix` + `-` + the name):
+
+| Hook | Attribute (default prefix) | Read or set |
+|---|---|---|
+| `banner` | `data-cookie-banner` | read: the banner's places; set on the banner the library uses or builds |
+| `summary` | `data-cookie-summary` | read: the question (without one, the banner itself is the question) |
+| `text` | `data-cookie-text="key"` | read: filled with `texts[key]` |
+| `accept`, `refuse`, `customize`, `save`, `close` | `data-cookie-accept`, ... | read: the buttons, by a click anywhere inside them |
+| `details` | `data-cookie-details` | read: the detailed section - in the banner, else anywhere in the page |
+| `categories` | `data-cookie-categories` | read: the list the rows go in (without one, no rows are made) |
+| `row` | `data-cookie-row` | read on a `<template>`: the site's row; set to the category's key on each row |
+| `toggle` | `data-cookie-toggle` | read in a row: its checkbox; set to the category's key |
+| `label`, `description`, `required`, `entries`, `features` | `data-cookie-label`, ... | read in a row: where the words, the description, the required mark and the two lists go |
+| `entry` | `data-cookie-entry="cookie"` | set on each item of the entries' list: the entry's type (`cookie`, `local`, `session`) |
+| `entry-name`, `entry-duration`, `entry-purpose` | `data-cookie-entry-name`, ... | set on the spans of an item; `data-cookie-entry-duration` holds the duration as declared |
+| `countdown`, `count` | `data-cookie-countdown`, `data-cookie-count` | read: the countdown's sentence and where the seconds go (made from `texts.countdown` when the sentence has no `count` inside) |
+| `open` | `data-cookie-open`, `data-cookie-open="banner"` | read: anything that opens the panel (its default action is prevented) |
+| `position` | `data-cookie-position` | set on the banner from the `position` option |
+| `category` | `data-cookie-category="key"` | read: an inert element (see [Features](#features)) |
+| `placeholder` | `data-cookie-placeholder="key"` | read: shown while the category is not granted |
+| `src` | `data-cookie-src` | read: the `src` an element gets at the grant |
+| `active` | `data-cookie-active` | set on an inert element once woken |
+| `config` | `data-cookie-config` | read: a page's configuration block (`data-cookie-config` is looked for whatever the prefix) |
+
+The module also sets, for screen readers: `role="dialog"`, `aria-live="polite"` and
+`aria-label` (`texts.label`) on the question, unless they are there; on the detailed section
+`role="dialog"`, `aria-modal="true"`, `tabindex="-1"` and `aria-label` (`texts.detailsLabel`,
+else `texts.detailsTitle`, else `texts.label`); `aria-expanded` on the `customize` buttons; on
+each switch `role="switch"`, `aria-describedby` (the description, given an `id` made from the
+prefix) and `disabled` for a required category. The banner and its parts are shown and hidden
+with the `hidden` attribute.
+
+### Classes
+
+`classes` gives the class of each part of the bare banner, and of each state on the banner the
+library uses, whoever wrote it. Given in part, it is merged with the defaults. A state class set
+to an empty value is not set.
+
+| Key | Default | On |
+|---|---|---|
+| `root` | `cookie-banner` | the banner (added to the site's banner too) |
+| `summary`, `title`, `text` | `cookie-summary`, `cookie-title`, `cookie-text` | the bare banner's question, its title and its text (also the detailed section's title and text) |
+| `countdown`, `count` | `cookie-countdown`, `cookie-count` | the countdown's sentence; the span of the seconds (made in the site's banner too) |
+| `actions`, `button` | `cookie-actions`, `cookie-button` | the bare banner's rows of buttons; every button |
+| `accept`, `refuse`, `customize`, `save`, `close` | `cookie-accept`, ... | each button of the bare banner, beside `button` |
+| `details`, `list` | `cookie-details`, `cookie-categories` | the bare detailed section; its list |
+| `row`, `label`, `toggle`, `required`, `description`, `entries`, `entry`, `features` | `cookie-category`, `cookie-label`, `cookie-toggle`, `cookie-required`, `cookie-description`, `cookie-entries`, `cookie-entry`, `cookie-features` | the parts of the default row (`entry` on each item of the entries, in any row) |
+| `open` | `is-open` | the banner while it shows (and a detailed section kept outside it while it shows) |
+| `pending` | `is-pending` | the banner while an answer is wanted |
+| `customizing` | `is-customizing` | the banner while the detailed section shows |
+| `counting` | `is-counting` | the banner while the countdown runs |
+| `tick` | `is-tick` | the seconds' span, set again at each new second (for a pulse); never under `prefers-reduced-motion` |
+| `reduced` | `is-reduced` | the banner, when the visitor asks for less motion (read when the banner is made) |
+
+### Texts
+
+`texts` holds every word; a value is a string (written as text) or `{html: '...'}` (written as
+HTML). A missing or empty text leaves the site's own words where they are; in the bare banner, a
+part without its text is not made.
+
+| Key | Where |
+|---|---|
+| `label` | the question's `aria-label` (and the detailed section's, failing the two below) |
+| `title`, `text` | the bare banner's title and paragraph; any `data-cookie-text="title"` / `"text"` |
+| `countdown` | the countdown's sentence, `{count}` where the seconds go |
+| `accept`, `refuse`, `customize` | the question's buttons |
+| `detailsTitle`, `detailsText` | the detailed section's title and paragraph |
+| `detailsLabel` | the detailed section's `aria-label` (else `detailsTitle`, else `label`) |
+| `acceptAll`, `refuseAll` | the detailed section's buttons (else `accept`, `refuse`) |
+| `save`, `close` | the detailed section's buttons |
+| `required` | the mark of a required category, in its row |
+
+Any other key is written where a `data-cookie-text` names it. Configured again after the banner
+was made (another language), `texts`, `classes`, `hooks`, `prefix`, `position` or `variables`
+make the bare banner again, and refill the site's.
+
+The bare banner, as headless Chrome printed it one second into a 10 s countdown, for two
+categories (`necessary`, required, with `PHPSESSID`; `analytics`, with `_pk_*` for `13mo` and
+`durations: {'13mo': '13 mois'}`) and the texts `label`, `text`, `countdown`, `accept`, `refuse`,
+`customize`, `detailsTitle`, `save`, `close`, `required` (no `title`, `detailsText`,
+`acceptAll`, `refuseAll`: those parts are not made):
+
+```html
+<div data-cookie-banner="" class="cookie-banner is-pending is-open is-counting">
+  <div data-cookie-summary="" class="cookie-summary" role="dialog" aria-label="Les cookies" aria-live="polite">
+    <p data-cookie-text="text" class="cookie-text">Le site ne garde que ce qui le fait marcher.</p>
+    <p data-cookie-countdown="" class="cookie-countdown">Sans réponse, ce choix est retenu dans <span data-cookie-count="" class="cookie-count is-tick">9</span> s.</p>
+    <div class="cookie-actions">
+      <button data-cookie-accept="" class="cookie-button cookie-accept" data-cookie-text="accept" type="button">D'accord</button>
+      <button data-cookie-refuse="" class="cookie-button cookie-refuse" data-cookie-text="refuse" type="button">Refuser</button>
+      <button data-cookie-customize="" class="cookie-button cookie-customize" data-cookie-text="customize" type="button" aria-expanded="false">Personnaliser</button>
+    </div>
+  </div>
+  <div data-cookie-details="" class="cookie-details" hidden="" role="dialog" aria-label="Vos choix" aria-modal="true" tabindex="-1">
+    <p data-cookie-text="detailsTitle" class="cookie-title">Vos choix</p>
+    <ul data-cookie-categories="" class="cookie-categories">
+      <li class="cookie-category" data-cookie-row="necessary">
+        <label class="cookie-label">
+          <input data-cookie-toggle="necessary" class="cookie-toggle" type="checkbox" role="switch" disabled="">
+          <span data-cookie-label="">Le fonctionnement du site</span>
+        </label>
+        <span data-cookie-required="" class="cookie-required">Toujours actif</span>
+        <p data-cookie-description="" class="cookie-description" hidden="" id="data-cookie-description-1"></p>
+        <ul data-cookie-entries="" class="cookie-entries">
+          <li data-cookie-entry="cookie" class="cookie-entry">
+            <span data-cookie-entry-name="">PHPSESSID</span>
+            <span data-cookie-entry-duration="session">session</span>
+            <span data-cookie-entry-purpose="">Votre session.</span>
+          </li>
+        </ul>
+        <ul data-cookie-features="" class="cookie-features" hidden=""></ul>
+      </li>
+      <li class="cookie-category" data-cookie-row="analytics">
+        <label class="cookie-label">
+          <input data-cookie-toggle="analytics" class="cookie-toggle" type="checkbox" role="switch" aria-describedby="data-cookie-description-2">
+          <span data-cookie-label="">La mesure d'audience</span>
+        </label>
+        <span data-cookie-required="" class="cookie-required" hidden="">Toujours actif</span>
+        <p data-cookie-description="" class="cookie-description" id="data-cookie-description-2">Un identifiant anonyme.</p>
+        <ul data-cookie-entries="" class="cookie-entries">
+          <li data-cookie-entry="cookie" class="cookie-entry">
+            <span data-cookie-entry-name="">_pk_*</span>
+            <span data-cookie-entry-duration="13mo">13 mois</span>
+            <span data-cookie-entry-purpose="">Matomo.</span>
+          </li>
+        </ul>
+        <ul data-cookie-features="" class="cookie-features" hidden=""></ul>
+      </li>
+    </ul>
+    <div class="cookie-actions">
+      <button data-cookie-accept="" class="cookie-button cookie-accept" data-cookie-text="accept" type="button">D'accord</button>
+      <button data-cookie-refuse="" class="cookie-button cookie-refuse" data-cookie-text="refuse" type="button">Refuser</button>
+      <button data-cookie-save="" class="cookie-button cookie-save" data-cookie-text="save" type="button">Enregistrer</button>
+      <button data-cookie-close="" class="cookie-button cookie-close" data-cookie-text="close" type="button">Fermer</button>
+    </div>
+  </div>
+</div>
+```
+
+(Indented here for reading; the module writes no whitespace between the elements.)
+
+A default row: `li.cookie-category[data-cookie-row]` holding a `label` (an
+`input[type=checkbox][data-cookie-toggle]` and a `span[data-cookie-label]`), a
+`span[data-cookie-required]`, a `p[data-cookie-description]`, a `ul[data-cookie-entries]` and a
+`ul[data-cookie-features]`; empty parts are `hidden`.
+
+### The stylesheet
+
 `src/css/cookie.scss` is an optional, minimal stylesheet (where the banner
 sits for each `position`, the switches) drawn from `--cookie-*` properties;
 it is not imported by any entry.
+
+Its selectors are the default attributes (`[data-cookie-banner]`, ...): a site with another
+`prefix` writes its own. The banner is `position: fixed`, in the bottom right corner by default;
+`data-cookie-position` moves it: a word starting with `top` to the top, ending with `left` to the
+left, ending with `center` (and `top`, `bottom`) centred across, `center` in the middle of the
+screen. Everything `hidden` inside it is `display: none`; nothing moves under
+`prefers-reduced-motion` or `.is-reduced`.
+
+| Property | Default | |
+|---|---|---|
+| `--cookie-z-index` | `1000` | |
+| `--cookie-gap` | `1rem` | the distance to the screen's edges |
+| `--cookie-width` | `24rem` | at most the screen's width less two gaps |
+| `--cookie-padding` | `1rem` | |
+| `--cookie-ink`, `--cookie-bg` | `inherit`, `Canvas` | the text and the ground |
+| `--cookie-border`, `--cookie-radius`, `--cookie-shadow` | `1px solid currentColor`, `0`, `none` | |
+| `--cookie-font` | `inherit` | the `font` shorthand |
+| `--cookie-transition` | `opacity .2s` | |
+| `--cookie-row-gap` | `.75rem` | between two categories |
+| `--cookie-accent` | `auto` | the switches' `accent-color` |
+| `--cookie-small` | `.85em` | the lists of entries and features |
+| `--cookie-separator` | `" - "` | between the name, the duration and the purpose of an entry |
+
+The `variables` option sets such properties on the banner itself.
 
 ### The countdown
 
@@ -435,6 +701,53 @@ pulse (`classes.tick` is not set) and the root has `classes.reduced`.
 | `texts` | `{}` | every word: a string, or `{html: '...'}` |
 | `durations` | `{}` | the site's words for the durations declared: `{'30d': '30 jours'}`, or a function `(duration, entry, seconds)` |
 | `observe` | `false` | watch the page for inert elements added later |
+| `groups` | `[]` | `@glitchr/cookie`'s list of groups (`Cookie.addGroup()`); every category's key, upper-cased, is added to it |
+
+How the options add up: `Cookie.ready(options)` and `Cookie.configure(options)` may be called
+any number of times. `record`, `cookie`, `signals`, `hooks`, `classes`, `variables`, `texts` and
+`durations` are merged key by key with what was given before (and with the defaults when read);
+any other option replaces the one before. `categories` and `storage` are not kept as options:
+each call declares them, adding to what is declared. An option set to `undefined` is ignored.
+`Cookie.options` holds what was configured, `Cookie.defaults` the defaults.
+
+Types: `version` any value (compared as a string); `undeclared` `'deny'` or `'allow'`; `legacy`,
+`autoOpen`, `observe`, `debug` booleans; `dismiss` `'none'`, `'default'`, `'accept'` or
+`'refuse'`; `reopen` `'details'` or `'banner'`; `bare` `'auto'`, `true` or `false`; `container`,
+`root`, `template` an element, a selector, (`template`) a string of HTML starting with `<`, or a
+function called with `Cookie` returning one; `config`, `prefix` strings; `hooks`, `classes`,
+`variables`, `texts` objects; `durations` an object or a function.
+
+### Nested options
+
+`record`:
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `store` | `'cookie'`, `'local'`, or `{read(), write(text), clear()}` | `'cookie'` | where the answer is kept: a cookie, `localStorage`, or the site's own store (`read()` returns the text written, or nothing) |
+| `name` | string | `'cookie-consent'` | the cookie's or the `localStorage` key's name; also the stem of `<name>.seen` |
+| `lifetime` | duration | `'180d'` | how long an answer counts; the record cookie's lifetime too. `null`: forever (the cookie for the session) |
+| `path`, `domain`, `sameSite`, `secure` | as in `cookie` | those of `cookie` | the record cookie's attributes |
+
+The record is JSON: `{"v": version, "t": seconds since 1970, "c": {"KEY": 1 or 0}, "s": source}`,
+the keys upper-cased. A record that cannot be read as such is no record.
+
+`cookie` (every cookie the library writes, the record's and those of `Cookie.cookies.set()`):
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `path` | string | `'/'` | |
+| `domain` | string or `null` | `null` | none: the host only |
+| `sameSite` | `'Lax'`, `'Strict'`, `'None'` or empty | `'Lax'` | written as `SameSite=...` when not empty |
+| `secure` | `true`, `false` or `'auto'` | `'auto'` | `Secure` always, never, or on https only |
+
+`countdown`: `false`, `0` or `null` (none); a duration (`'10s'`, `10`) with the action
+`default`; or `{duration, action}`, `action` one of `default` (when not given), `accept`,
+`refuse`, `none`.
+
+`signals`: `{gpc, dnt}`, each `false` (not honoured), `true` (covers every category that is not
+required) or a list of category keys.
+
+`hooks`: `{<hook>: '<attribute>'}` for any hook of the table in [The interface](#the-interface).
 
 ## Methods
 
@@ -452,6 +765,39 @@ Cookie.onConsent(fn)             Cookie.signals()         Cookie.reduced()
 Cookie.ignored(element)          // in an element the ignore option names: not a click on the page
 Cookie.destroy()                 // as loaded: no category, no declaration, no banner (the answer kept stays)
 ```
+
+| Method | Returns | Effect |
+|---|---|---|
+| `ready(options)` | `Cookie` | `configure(options)`, makes the banner again when its words or looks changed, dispatches `cookie:ready`, starts (signals, inert elements, the banner while an answer is wanted), `refresh()` |
+| `configure(options)` | `Cookie` | the options added up, the categories and the storage declared; nothing is shown |
+| `category(key, definition)` | the category's snapshot, or `null` (no key) | declares it, or adds to it (`label`, `description`, `default` - or omnibase/consent's `implicit` -, `required`, `onDemand`, `storage`, `features`, `erase`), then starts again when ready |
+| `category(key)` | `{key, label, description, default, required, onDemand, storage, features, state, granted}` or `null` | a snapshot taken now: changing it declares nothing |
+| `categories()` | snapshots | the listed categories, in the order declared (an on-demand one only once used) |
+| `storage(entry \| list)` | `Cookie` | declares entries |
+| `state(key)` | `true`, `false`, `null` | the answer that counts (`true` for a required category); `null` with none, or for a category not declared |
+| `granted(key)` | boolean | the answer, else the default (off under an honoured signal); `false` for a category not declared |
+| `pending()` | boolean | a category that is not required nor on demand has no answer that counts |
+| `answered()` | boolean | a record of this version, younger than `record.lifetime` |
+| `accept()`, `refuse()` | `Cookie` | every listed category on, or off but the required ones (`source: 'accept'`, `'refuse'`) |
+| `save(map)` | `Cookie` | keeps `{key: bool}` (`source: 'api'`); without a map, the switches of the detailed section as set (`source: 'save'`) |
+| `grant(keys)`, `revoke(keys)` | `Cookie` | those categories on or off (a key or a list; unknown keys are skipped); without keys, as `accept()` / `refuse()` but with `source: 'api'` |
+| `forget()` | `Cookie` | erases the record (and `cookie/<KEY>` with `legacy`); every category is back to its default, and what a category now off declares is erased; tells what changed (`cookie:consent` with `source: 'api'`) and asks again |
+| `use(key, options, onGrant, onRevoke)` | boolean: granted now | see [Features](#features); `options` may be left out |
+| `unuse(key, onGrant, onRevoke)` | `Cookie` | takes those functions back |
+| `scan(root)` | `Cookie` | wakes or puts to sleep the inert elements under `root` (the document by default) |
+| `open(view, opener)` | `Cookie` | shows `banner` or `details` (the `reopen` option by default; `details` falls back to `banner` when the banner has no detailed section); `opener` gets the focus back at the closing. Nothing without a declared category |
+| `close()` | `Cookie` | hides the banner; while an answer is wanted, it is not shown again by itself until the next page loaded |
+| `banner()` | element or `null` | the live banner |
+| `mount(target)` | element or `null` | see [Several places in a page](#several-places-in-a-page) |
+| `onConsent(fn)` | `Cookie` | `fn(detail, event)` at each `cookie:consent` |
+| `signals()` | `{gpc, dnt}` | what the browser sends, whatever the site honours |
+| `reduced()` | boolean | `prefers-reduced-motion: reduce` |
+| `ignored(element)` | boolean | inside an element the `ignore` option names |
+| `seconds(value)` | number or `null` | a duration in seconds, see [What is stored](#what-is-stored) |
+| `destroy()` | `Cookie` | stops the countdown and the observer, removes a banner the library put in the page (hides the site's), unbinds the clicks and keys, forgets every option, category, entry and feature; the record stays where it is kept |
+
+`Cookie.cookies`, `Cookie.local` and `Cookie.session` are described in
+[What is stored](#what-is-stored).
 
 ## From @glitchr/cookie
 
