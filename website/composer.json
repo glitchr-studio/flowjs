@@ -10,7 +10,7 @@
         "omnibridge/static": "1.x-dev",
         "omnidocs/jsdoc": "1.x-dev",
         "omnidocs/markdown": "1.x-dev",
-        "omniscient/omnidocs": "1.x-dev",
+        "omnisense/omnidocs": "1.x-dev",
         "symfony/asset": "^8.0",
         "symfony/console": "^8.1.9",
         "symfony/dotenv": "^8.1.6",

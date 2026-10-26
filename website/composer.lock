@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "85e427a88f8b4faf00057ad80b2f73e5",
+    "content-hash": "ed0ca0efe76f43b87245bd9bf984f514",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -622,21 +622,24 @@
             "time": "2026-10-25T14:01:23+00:00"
         },
         {
-            "name": "omniscient/omnidocs",
+            "name": "omnisense/omnidocs",
             "version": "1.x-dev",
             "source": {
                 "type": "git",
-                "url": "https://github.com/glitchr-studio/omnidocs.git",
-                "reference": "4cf4198df052036a6f6343224c747bbae87c706b"
+                "url": "https://github.com/glitchr-omnisense/omnidocs.git",
+                "reference": "524f471308e940f2adfbb9712d124bbdfbce6852"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glitchr-studio/omnidocs/zipball/4cf4198df052036a6f6343224c747bbae87c706b",
-                "reference": "4cf4198df052036a6f6343224c747bbae87c706b",
+                "url": "https://api.github.com/repos/glitchr-omnisense/omnidocs/zipball/524f471308e940f2adfbb9712d124bbdfbce6852",
+                "reference": "524f471308e940f2adfbb9712d124bbdfbce6852",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.2"
+            },
+            "replace": {
+                "omniscient/omnidocs": "self.version"
             },
             "require-dev": {
                 "phpunit/phpunit": "^11.0"
@@ -674,7 +677,7 @@
                 }
             ],
             "description": "Omnidocs: one model of a manual, whatever wrote it - Markdown, Sphinx, Doxygen, JSDoc: its versions, its pages (title, contents, headings, the file to edit), its API entries and their anchors, read through one source contract; a search index a static page searches, and the HTML conventions of symfony.com/doc (callouts, versionadded, code with captions and tabs) every format renders to.",
-            "homepage": "https://github.com/glitchr-studio/omnidocs",
+            "homepage": "https://github.com/glitchr-omnisense/omnidocs",
             "keywords": [
                 "api reference",
                 "documentation",
@@ -688,10 +691,10 @@
                 "static site"
             ],
             "support": {
-                "issues": "https://github.com/glitchr-studio/omnidocs/issues",
-                "source": "https://github.com/glitchr-studio/omnidocs/tree/1.x"
+                "issues": "https://github.com/glitchr-omnisense/omnidocs/issues",
+                "source": "https://github.com/glitchr-omnisense/omnidocs/tree/1.x"
             },
-            "time": "2026-10-25T14:24:27+00:00"
+            "time": "2026-10-26T05:24:12+00:00"
         },
         {
             "name": "psr/cache",
@@ -5839,7 +5842,7 @@
         "omnibridge/static": 20,
         "omnidocs/jsdoc": 20,
         "omnidocs/markdown": 20,
-        "omniscient/omnidocs": 20
+        "omnisense/omnidocs": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
