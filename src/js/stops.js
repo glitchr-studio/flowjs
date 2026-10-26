@@ -337,6 +337,12 @@
     // px under which a glide takes less than the whole duration.
     var SHORT = 100;
 
+    // ms: how late the scroll position may be told. iOS Safari scrolls its
+    // page in another process, which tells the position back a frame or more
+    // after a script set it: read in the frames that follow, it may still be
+    // one the glide went through - ours, not the reader's.
+    var LATE = 150;
+
     function reducedMotion() {
         return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
@@ -364,9 +370,11 @@
         this.timer = null;
         this.glideTimer = null;
         this.frame = null;
-        // Our own animated glide: its frame, and where it last put the scroll.
+        // Our own animated glide: its frame, where it last put the scroll,
+        // and where it went over the last LATE ms ({at, top}).
         this.animation = null;
         this.put = null;
+        this.trail = [];
         // Where it arrived, until the scroll has rested there.
         this.arrived = null;
         // Where the reader stopped a glide: not to be taken up from there.
@@ -666,6 +674,16 @@
         return true;
     };
 
+    /** Whether the scroll is where our glide put it lately - told late, as iOS tells it. */
+    Stops.prototype.ours = function (y) {
+        var low = Infinity, high = -Infinity;
+        for (var i = 0; i < this.trail.length; i++) {
+            low = Math.min(low, this.trail[i].top);
+            high = Math.max(high, this.trail[i].top);
+        }
+        return y >= low - 2 && y <= high + 2;
+    };
+
     // The end of a glide that fired no scroll event to end it.
     Stops.prototype.release = function () {
         this.glideTimer = null;
@@ -681,6 +699,7 @@
 
         this.cancel();
         this.arrived = null;
+        this.trail = [{ at: now(), top: from }];
         duration = duration * clamp(Math.abs(distance) / SHORT, 0.4, 1);
         var ease = easing(this.options.easing);
 
@@ -688,10 +707,12 @@
             self.animation = null;
 
             // Moved by anything but us since the last frame (the scrollbar
-            // dragged, a script): theirs now.
-            if (self.put !== null && Math.abs(self.top() - self.put) > 2) {
+            // dragged, a script): theirs now, and it rests where they put it.
+            // A position the glide went through lately is ours, told late.
+            if (self.put !== null && !self.ours(self.top())) {
                 self.put = null;
                 self.gliding = false;
+                self.stopped = self.top();
                 return;
             }
 
@@ -700,6 +721,9 @@
 
             self.jump(t < 1 ? from + distance * ease(t) : to);
             self.put = self.top();
+            var at = now();
+            self.trail.push({ at: at, top: self.put });
+            while (self.trail.length > 1 && at - self.trail[0].at > LATE) self.trail.shift();
 
             if (t < 1) {
                 self.animation = requestAnimationFrame(frame);
@@ -836,7 +860,7 @@
 
         // Our glide has arrived and the page moves away from there: the
         // reader again, before the scroll had rested.
-        if (this.gliding && this.animation === null && this.arrived !== null && Math.abs(y - this.arrived) > 2) {
+        if (this.gliding && this.animation === null && this.arrived !== null && !this.ours(y)) {
             this.gliding = false;
             this.arrived = null;
         }

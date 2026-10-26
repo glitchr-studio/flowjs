@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5.4 - 2026-10-26
+
+- **stops** - a glide told its position late is still ours. iOS Safari
+  scrolls its page in another process, which tells the position back a frame
+  or more after a script set it: read in the next frames, window.scrollY may
+  still be one the glide went through. The glide took it for another's scroll
+  and gave up at the first frame that moved more than 2px; the rest that
+  followed glided again from there, and the page went to its stop by 10-20px
+  steps for seconds without a finger on the screen (anaelletourret's home on
+  an iPhone). A position the glide went through in the last 150ms is now its
+  own, and a scroll that is not - nor a reader's (a finger, a wheel, a press
+  stop a glide as before) - leaves the page where it put it, not glided again
+  from there. tests/stops-lag.html (scrollY told 40ms late: one glide, all
+  the way; a wheel during it still takes over).
+
 ## 1.5.3 - 2026-10-25
 
 - **stops** - a stop barely taller than the screen (`shortEnd`) is a stop the
