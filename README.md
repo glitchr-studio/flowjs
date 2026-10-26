@@ -56,7 +56,7 @@ Without a bundler, the files of `src/js/` in a page, `core.js` first:
 ```
 
 Each module sets its global (`window.Transparent`, ...) and registers itself on
-the core (`Flow.navigation`, `Flow.frame`, `Flow.sticky`, `Flow.stops`, `Flow.scenes`,
+the core (`Flow.navigation`, `Flow.frames`, `Flow.sticky`, `Flow.stops`, `Flow.scenes`,
 `Flow.sortable`, `Flow.ajaxer`, `Flow.cookie`). The stylesheets are `src/css/navigation.scss`,
 `sticky.scss`, `ajaxer.scss`, and `index.scss` for all of them; `cookie.scss`,
 a minimal look for the cookie banner, is imported by no entry - a site asks for

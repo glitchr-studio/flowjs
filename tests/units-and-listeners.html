@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  1.6's fixes from the docs' audit: a percentage is a hundredth (Flow.parseToPixel('15%'), the scroll
+  padding in %), "1s" is a second for swipe_timegate (a swipe of 50ms triggers with the default), and a
+  site's own jQuery hashchange handler survives Sticky's unload (the navigation's beforeunload).
+-->
+<html>
+<head><meta charset="utf-8"><title>units</title>
+<style>#box { width: 400px; } .swipe { height: 200px; }</style></head>
+<body>
+<div id="box"></div>
+<div id="swipe" class="sticky-swipe swipe">swipe here</div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/sticky.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        await new Promise(function (r) { window.addEventListener('load', r, { once: true }); });
+        Sticky.ready({ swipe: true });
+        await H.after(50);
+        var box = document.getElementById('box');
+        H.check(Flow.parseToPixel('15%', box) === 60 && Flow.percentToPixel('50%') === innerWidth / 2, 'a percentage is a hundredth of the width', Flow.parseToPixel('15%', box));
+        document.documentElement.style.scrollPaddingTop = '10%';
+        var top = Flow.scrollPadding().top;
+        H.check(top > 0 && top <= innerWidth * 0.1 + 1, 'a scroll padding in % is a share, not ten thousand pixels', top);
+        document.documentElement.style.scrollPaddingTop = '';
+        H.check(Flow.toMilliseconds('1s') === 1000 && Flow.toMilliseconds('250ms') === 250 && Flow.toMilliseconds(400) === 400, 'durations in ms: "1s", "250ms", 400');
+
+        // A swipe of 50ms, 200px to the right, with the default swipe_timegate ("1s").
+        var el = document.getElementById('swipe'), swiped = [];
+        el.addEventListener('sticky.swipe_right', function () { swiped.push('right'); });
+        Sticky.onSwipe(el);
+        var touch = function (x) { return new Touch({ identifier: 1, target: el, pageX: x, pageY: 100, clientX: x, clientY: 100 }); };
+        window.dispatchEvent(new TouchEvent('touchstart', { changedTouches: [touch(20)], touches: [touch(20)], bubbles: true }));
+        await new Promise(function (r) { setTimeout(r, 50); });
+        el.dispatchEvent(new TouchEvent('touchend', { changedTouches: [touch(260)], touches: [], bubbles: true }));
+        await H.after(30);
+        H.check(swiped.join() === 'right', 'a 50ms swipe triggers with the default timegate ("1s")', JSON.stringify({ swiped: swiped, gate: Sticky.get('swipe_timegate'), threshold: Sticky.get('swipe_threshold') }));
+
+        // A site's jQuery hashchange handler, after the unload Sticky listens to.
+        var heard = 0;
+        $(window).on('hashchange', function () { heard++; });
+        $(window).trigger('beforeunload');
+        location.hash = '#a';
+        await new Promise(function (r) { setTimeout(r, 100); });
+        H.check(heard === 1, 'a site\'s own hashchange handler survives Sticky\'s unload', heard);
+        H.done();
+    })();
+</script>
+</body>
+</html>

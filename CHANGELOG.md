@@ -33,6 +33,16 @@
   tall stop, free across, its keys a screen at a time; the progress is read
   400ms past the last scroll event for iOS's late positions. docs/scenes.md.
   tests/scenes.html, tests/scenes-reduced.html.
+- **core** - a percentage is a hundredth: `Flow.parseToPixel('15%')` (and
+  `Sticky.percentToPixel`, `Transparent.percentToPixel`) gave 15 times the
+  width, so a `scroll-padding-top` in % read as thousands of pixels in every
+  module that reads it. `Flow.toMilliseconds()` reads "1s", "250ms" and plain
+  ms; `Flow.version` says 1.6.0 (it said 1.3.1).
+- **sticky** - `swipe_timegate: "1s"` is a second: read with parseInt it was
+  1 ms, and no swipe ever triggered with the default. Sticky's unload no
+  longer calls `$(window).off("hashchange")`, which dropped a site's own
+  jQuery hashchange handler at the first navigation (the module binds none).
+  tests/units-and-listeners.html.
 
 ## 1.5.4 - 2026-10-26
 

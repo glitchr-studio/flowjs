@@ -2335,7 +2335,7 @@
 
     Transparent.remToPixel     = Flow.remToPixel;
     Transparent.emToPixel      = Flow.emToPixel;
-    Transparent.percentToPixel = function(p , el)  { return parseFloat(p  ) * $(el).outerWidth(); }
+    Transparent.percentToPixel = function(p , el)  { return parseFloat(p  ) / 100 * $(el).outerWidth(); }
     Transparent.parseToPixel   = Flow.parseToPixel;
     Transparent.getScrollPadding = Flow.scrollPadding;
 

@@ -25,7 +25,7 @@
 
     var document = window.document;
 
-    var Flow = { core: true, version: '1.3.1' };
+    var Flow = { core: true, version: '1.6.0' };
 
     // ── jQuery ───────────────────────────────────────────────────────────
     // A bundler's ProvidePlugin gives the bare `jQuery` identifier; a page
@@ -73,9 +73,20 @@
     // ── Units ────────────────────────────────────────────────────────────
     Flow.remToPixel = function (rem) { return parseFloat(rem) * parseFloat(getComputedStyle(document.documentElement).fontSize); };
     Flow.emToPixel = function (em, el) { return parseFloat(em) * parseFloat(getComputedStyle(el && el.parentElement ? el.parentElement : document.documentElement).fontSize); };
+    /** "15%" of the element's width (the window's without one). Up to 1.5 the number was not divided by 100: 15 times the width. */
     Flow.percentToPixel = function (p, el) {
         var width = el && el.getBoundingClientRect ? el.getBoundingClientRect().width : window.innerWidth;
-        return parseFloat(p) * width;
+        return parseFloat(p) / 100 * width;
+    };
+
+    /** A duration in ms: "1s", "250ms", or a plain number of ms ("400", 400). NaN for what is unreadable. */
+    Flow.toMilliseconds = function (value) {
+        var text = String(value === undefined || value === null ? '' : value).trim();
+        var number = parseFloat(text);
+        if (isNaN(number)) return NaN;
+        if (/ms$/.test(text)) return number;
+        if (/s$/.test(text)) return number * 1000;
+        return number;
     };
 
     /** "90", "90px", "2rem", "1.5em", "15%", or several ("2rem, 90px"): the largest, in px. undefined for undefined. */
