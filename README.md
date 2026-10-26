@@ -15,8 +15,10 @@ core. The modules are independent of each other: import what a page needs.
 | ajaxer | `Ajaxer` | `ajaxer` | named AJAX channels over `$.ajax`: throttle, debounce, loader, retry, request limit | jQuery |
 | cookie | `Cookie` | `cookie` | what a site stores in the browser and the visitor's consent to it: categories the site declares, the cookies and storage entries under each, features started at a grant and stopped at a withdrawal, a banner and a detailed section in the site's words | nothing |
 
-Per module: [navigation](docs/navigation.md), [sticky and stops](docs/sticky.md),
-[sortable](docs/sortable.md), [ajaxer](docs/ajaxer.md), [cookie](docs/cookie.md).
+Per module: [the core](docs/core.md), [navigation](docs/navigation.md), [sticky and stops](docs/sticky.md),
+[sortable](docs/sortable.md), [ajaxer](docs/ajaxer.md), [cookie](docs/cookie.md); and
+[testing](docs/testing.md). Each page holds the module's complete options table, its classes and
+data attributes, its events and its methods; [docs/index.md](docs/index.md) is the manual's home.
 
 The website, https://glitchr-studio.github.io/flowjs/, runs every module live beside its code and
 holds this manual on one page, the API reference JSDoc reads from `src/js`, and the changelog

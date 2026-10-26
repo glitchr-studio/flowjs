@@ -1,6 +1,11 @@
+---
+title: Sticky and stops
+order: 30
+---
+
 # Sticky and stops
 
-`src/js/sticky.js` (global `Sticky`) and `src/js/stops.js` (global `StickyStops`). The options of Sticky are listed in the README and in `Sticky.settings`; this page describes the address following the reading and the scroll stops.
+`src/js/sticky.js` (global `Sticky`) and `src/js/stops.js` (global `StickyStops`). The options of Sticky are listed in the README and in `Sticky.settings`; this page describes the address following the reading and the scroll stops, then every option, class, attribute, event and method of each (Sticky needs jQuery and the core; the stops need the core only).
 
 ## The address follows the reading
 
@@ -107,6 +112,211 @@ The effects run once per frame in which the scroller scrolled, through the
 core, and once when the page is loaded. `Sticky.trigger(el)` runs them now,
 as `$(window).trigger('scrolldelta.sticky')` did in stickyjs; a page's own
 `scrolldelta` handlers (jQuery) still receive the computed event.
+
+## Loading Sticky
+
+```js
+import '@glitchr/flowjs/sticky';       // Sticky, its stylesheet, the stops and the core
+Sticky.ready({ scrollsnap: true, passive: false, scrollsnap_keys: true });
+```
+
+Without a bundler: jQuery, `src/js/core.js`, then `src/js/sticky.js` (it throws "load core.js
+first" or "jQuery is needed" otherwise), and `src/css/sticky.scss` compiled. The `sticky` entry
+also loads `stops.js`. Loaded, the module:
+
+- runs its load pass (`Sticky.onLoad()`) at once when the document is parsed already, else at
+  `DOMContentLoaded` - which the navigation dispatches again after each swap, so the pass runs on
+  every page;
+- hears the window's scroll through the core, once per frame, and the `.sticky-scrollpercent`
+  scrollers it finds;
+- at `beforeunload` (the browser's, and the one the navigation dispatches before a swap) stops
+  hearing the window and forgets its measurements until the next load pass.
+
+`Sticky.ready(options)` sets the options (as `Sticky.configure`), marks the module ready and
+dispatches `sticky:ready` on `window`. The load pass marks it ready too: `ready()` is for setting
+options, not a condition for the effects to run.
+
+> [!WARNING]
+> Known defect: at `beforeunload` the module calls `$(window).off("hashchange")`
+> (`src/js/sticky.js:1914`), which removes every jQuery `hashchange` handler of the window, the
+> site's included; and the navigation dispatches `beforeunload` before each swap
+> (`src/js/transparent.js:3178`). A site's `$(window).on('hashchange', fn)` is dropped at the first
+> navigation (checked in headless Chrome: called before a dispatched `beforeunload`, never after),
+> where only the module's own handlers are expected to go. Listen with
+> `window.addEventListener('hashchange', fn)`, which jQuery's `off` does not reach.
+
+## Options (`Sticky.settings`)
+
+Set with `Sticky.ready({...})`, `Sticky.configure({...})` or `Sticky.set(key, value)`; read with
+`Sticky.get(key)` (`null` for a key that is not set). The effects read them as they run, so a
+change applies from the next scroll. Durations are read with
+[`Flow.parseDuration`](core.md#time-and-durations) (`"250ms"`, `"2s"`, a bare number is seconds).
+
+| Option | Type | Default | Effect |
+|---|---|---|---|
+| `tick` | duration | `"1ms"` | declared, read by nothing (see the known defect below) |
+| `debounce` | duration | `"500ms"` | how long after a scroll the measurements are forgotten (`Sticky.reset`), and how long after a magnet's way the snap waits before it may act again |
+| `threshold` | duration | `"5000ms"` | `.sticky-bottom`: how long the reader must push against the bottom of the page before the bar shows; how long against the top before it goes |
+| `scrollcatch` | boolean or z-index | `false` | `.sticky-top`: when the header has scrolled to the top, a clone takes its place and the header turns `position: fixed` at that z-index (`true`: its own). `aria-scrollcatch` on the element says it for that one |
+| `scrolllock` | boolean | `true` | during a held way to a magnet, also blocks the wheel and the arrow keys through listeners (see the known defect below: no effect in current browsers) |
+| `scrollhide` | boolean | `true` | `.sticky-top` hides on the way down and shows on the way up (`aria-scrollhide="false"` on one keeps it in place); `.sticky-bottom` is handled only while it is on |
+| `scrollhint` | number 0..1 | `0.25` | `.sticky-bottom`: the share of `threshold` after which the bar shows a hint (class `hint`; a click on it shows the bar); `0`: no hint |
+| `overscroll` | object | `{top: false, bottom: false, left: false, right: false}` | written by the module (with `passive: false`, from the wheel at an edge): the page is pushed past that edge; set by hand for a browser that sends no scroll event there |
+| `passive` | boolean | `true` | `false` lets the module listen to the wheel (`wheel.sticky`, for the overscroll) and turns the magnets' snap on |
+| `scrollpercent` | boolean | `true` | the `.sticky-scrollpercent-*` triggers and their `scrollpercent` events |
+| `scrollsnap` | boolean | `true` | the magnets: the snap (with `passive: false`), the `.sticky-magnet-*` buttons, the keys (with `scrollsnap_keys`) |
+| `scrollsnap_start` | string | `"start"` | read and printed with `debug`; the snap always meets a magnet by its top under the scroll padding |
+| `scrollsnap_proximity` | number 0..1 | `0.01` | the share of the screen a magnet must fill to be a candidate for the snap |
+| `scrollsnap_hold` | boolean | `true` | the way to a magnet holds the scroll (`.sticky-prevent-scroll` on `<html>`); `false`: the reader's gesture stops it. See [A way the reader may take](#a-way-the-reader-may-take-scrollsnap_hold-11) |
+| `scrollsnap_keys` | boolean | `false` | the arrows go from magnet to magnet. See [The arrow keys](#the-arrow-keys-scrollsnap_keys-11) |
+| `swipe` | boolean | `true` | `.sticky-swipe` elements dispatch `sticky.swipe_left` and `sticky.swipe_right` |
+| `swipe_timegate` | number (ms) | `"1s"` | the longest a swipe may take (read with `parseInt`: give a number of ms; see the known defect below) |
+| `swipe_threshold` | number (px) | `200` | the least a finger must travel sideways for a swipe (and at most 100 px up or down) |
+| `swipehint` | boolean | `true` | `.sticky-swipehint` elements get `sticky-swipehint-reveal` after `swipehint_delay`, lost at their first scroll; `.sticky-swipehint-container` gets an `<img>` of its `data-image` |
+| `swipehint_delay` | duration | `"1s"` | before the hint is revealed |
+| `swipehint_debounce` | duration | `0` | when not 0, the hint comes back that long after the element's scroll stopped |
+| `autoscroll` | boolean | `true` | `.sticky-autoscroll` blocks scroll by themselves (both axes unless `data-autoscroll-x` / `-y` say otherwise) |
+| `autoscroll_bouncing` | boolean | `true` | at the end, the block scrolls back, then over again |
+| `autoscroll_speed` | number (px/s) | `100` | the speed of the autoscroll |
+| `autoscroll_delay` | duration | `"2s"` | before the autoscroll starts, and again after the reader left the block |
+| `autoscroll_easing` | string | `"linear"` | the jQuery easing of the autoscroll |
+| `autoscroll_minwidth`, `autoscroll_minheight` | number (px) | `200`, `400` | a block that scrolls less than that along an axis is not autoscrolled along it |
+| `autoscroll_startover` | boolean | `true` | after the reader's pointer or finger left the block, the autoscroll starts again (`false`: it stops for good) |
+| `autoscroll_delay_reverse` | duration | `"3s"` | before a block marked to start reversed scrolls to its end first |
+| `autoscroll_reverse` | boolean | `false` | the block scrolls from its end towards its start |
+| `autoscroll_mouse_action` | boolean | `true` | a wheel, the pointer entering or a finger on the block stops its autoscroll |
+| `smoothscroll_duration` | duration | `"250ms"` | the movement to a magnet (the snap, the buttons, the keys) |
+| `smoothscroll_speed` | number (px/s) | `0` | instead of the duration, when not 0 |
+| `smoothscroll_easing` | string | `"swing"` | the jQuery easing of that movement |
+| `easein` | number (px) | `"100px"` | `.sticky-easein`: a margin around the screen - the block shows once it is closer than that to entering it; negative, once it is that far inside (at most its own height) |
+| `easeout` | number (px) | `"50px"` | `.sticky-easeout`: the block is hidden once it is farther than that out of the screen; negative, once less than that of it is still inside |
+| `easetime` | duration | `"250ms"` | the duration of a fading block's opacity transition |
+| `easedelay` | duration | `"250ms"` | its delay |
+| `easethrottle` | duration | `"0ms"` | added to the delay of each fading block after the first, in the page's order: a cascade |
+| `ready` | boolean | `true` | the effects run; the module sets it false at `beforeunload` and true again at the load pass |
+| `debug` | boolean or number | `false` | prints to the console; `2` prints every scroll |
+| `disable` | boolean | `false` | no effect runs; at the load pass `.sticky` elements get `sticky-disabled` |
+| `replacehash` | boolean | `true` | the address follows the reading (see [The address follows the reading](#the-address-follows-the-reading)) |
+
+Two keys are read without being declared: `autoscroll_speed_reverse` and
+`autoscroll_duration_reverse` (the first movement of a block marked to start reversed; unset, it
+is at once). Give them with `Sticky.set()`.
+
+`easein` and `easeout` are read with `parseInt`: `"100px"` is 100, `"2rem"` is 2. Give px.
+
+> [!WARNING]
+> Known defect: `tick` is declared (`src/js/sticky.js:61`) and read nowhere, where an option of
+> `Sticky.settings` is expected to do something.
+
+> [!WARNING]
+> Known defect: `swipe_timegate` is read with `parseInt` (`src/js/sticky.js:677`), so the default
+> `"1s"` is 1 ms and no swipe is ever fast enough: in headless Chrome a 300 px swipe of 50 ms
+> dispatched nothing with the default and `sticky.swipe_right` with `Sticky.set('swipe_timegate', 1000)`,
+> where `"1s"` is expected to mean a second. Set a number of milliseconds.
+
+> [!WARNING]
+> Known defect: `scrolllock` goes through `Sticky.enableScroll()` / `Sticky.disableScroll()`
+> (`src/js/sticky.js:596-638`), which pass jQuery-style namespaced names (`wheel.preventDefault`,
+> `touchmove.preventDefault`, `keydown.preventDefault`) to the native `addEventListener`, where no
+> such event exists, and are inverted (`enableScroll` adds the blocking listeners, at the end of a
+> way). The only real one is a `DOMMouseScroll` listener `enableScroll` adds and nothing removes:
+> nothing is blocked in Chromium and WebKit; in a browser that still fires `DOMMouseScroll` the
+> wheel would be blocked after the first way (not checked). The way is held by
+> `.sticky-prevent-scroll` alone. `Sticky.allowScrolling()` always answers true.
+
+## Classes and attributes (Sticky)
+
+What the page marks, and what the module sets in return.
+
+| Mark | Effect | Set by the module |
+|---|---|---|
+| `.sticky-top` | a header that hides on the way down, shows on the way up | `show`, `skip-transition`, an inline `top`; with `scrollcatch`: `caught`, `aria-scrollcatch-pos`, `aria-labelledby` (the clone's id), and a clone marked `aria-scrollcatch-clone` |
+| `aria-scrollhide="false"` (on `.sticky-top`) | this header stays | |
+| `aria-scrollcatch="<z-index>"` (on `.sticky-top`) | `scrollcatch` for this one | |
+| `.sticky-bottom` | a bar that shows when the reader pushes against the bottom of the page | `show`, `hint`, `skip-transition`, an inline `bottom` |
+| `.sticky-widget` | stays in view (`position: sticky` in the stylesheet), its offset from its margins and the scroll padding | inline `top`, `margin-top`, `margin-bottom`; `skip-transition` |
+| `data-sticky-offset-top`, `data-sticky-offset-bottom` (on `.sticky-widget`) | its distance from the top and the bottom, at least the scroll padding (`"2rem"`, `"90px"`) | |
+| `.sticky-easein`, `.sticky-easeout` | a block that fades in as it comes into the screen, out as it leaves | `show` while shown; an inline `transition` for its opacity |
+| `data-sticky-easein`, `data-sticky-easeout`, `data-sticky-easeinout` | its own `easein` / `easeout` (px) | |
+| `data-sticky-easetime`, `data-sticky-easedelay` | its own `easetime` / `easedelay` | |
+| `.sticky-headlines`, `[id]` inside one, `.sticky-magnet[id]` | the headlines the address follows | `highlight` on the current one and on the links to it (`a[href^="#id"]`) |
+| `.sticky-headlines-skip` | a headline the address does not follow | |
+| `.sticky-magnet` | a place the snap and the keys take the page to | `magnet` on the one gone to, `closest` on the candidates |
+| `.sticky-magnet-first`, `-prev`, `-next`, `-last` | buttons: a click scrolls to that magnet | `show` on `-first` unless at the first magnet, on `-last` unless at the last; hidden (`display: none`) without magnets |
+| `<html>` | | `sticky-prevent-scroll` during a held way to a magnet |
+| `.sticky-scrollpercent` and a class `sticky-scrollpercent[-from\|-every\|-once]-<N>[u\|d\|l\|r]` | a scroller that dispatches `scrollpercent` at N % of its scroll, heading down (`d`, the default), up, left or right | |
+| `.sticky-swipe` | an element that dispatches `sticky.swipe_left` / `sticky.swipe_right` | |
+| `.sticky-swipehint` | a scroller that shows a hint until its first scroll | `sticky-swipehint-reveal` |
+| `.sticky-swipehint-container` + `data-image="<url>"` | holds the hint's picture | a `<span><img></span>` appended |
+| `.sticky-autoscroll` | a block that scrolls by itself | jQuery data `autoscroll-prevent`, `autoscroll-reverse` |
+| `data-autoscroll-x`, `data-autoscroll-y` | `true` or `false`: the axes (the `autoscroll` option by default) | |
+| `data-autoscroll-speed`, `-easing`, `-delay`, `-minwidth`, `-minheight`, `-startover`, `-reverse`, `-bouncing`, `-mouse-action` | the block's own `autoscroll_*` option | |
+| `data-autoscroll-delay-reverse`, `-speed-reverse`, `-duration-reverse` | the first movement of a block marked reversed | |
+| `data-autoscroll-prevent` | set, the block does not autoscroll | |
+| `.sticky` | | `sticky-disabled` with `disable` |
+| `a[href^="#"]` | a click notes where its anchor lands, so the header shows there | |
+
+The scroll-percent class, read by its parts: `sticky-scrollpercent-every-50d` (each time the scroll
+passes 50 % going down, again after it went back under), `-once-80` (the first time the scroll
+reaches 80 % going down - once for the life of the window, the navigation's swaps included: the
+module keeps that state for the window), `-from-20u` (at every frame of a scroll heading up while
+the scroll is at 80 % or more: `u` and `l` count from the end, 100 - N).
+
+```html
+<div class="sticky-scrollpercent sticky-scrollpercent-once-90d" style="overflow-y: auto; height: 20rem">…</div>
+<script>
+    document.querySelector('.sticky-scrollpercent').addEventListener('scrollpercent', function (e) {
+        loadMore();   // e.detail: {scroll, trigger, dir, percent}
+    });
+</script>
+```
+
+A class on `<html>` makes the page itself the scroller, and its events go to `window`.
+
+## Events (Sticky)
+
+| Event | Target | When | `detail` |
+|---|---|---|---|
+| `sticky:ready` | `window` | `Sticky.ready()` | none |
+| `scrollpercent` | the scroller (`window` for the page), not bubbling | a scroll-percent class's mark passed | `{scroll, trigger, dir, percent}`: the computed scroll event, `0` from / `1` once / `2` every, `up` / `down` / `left` / `right`, the percentage reached |
+| `sticky.swipe_left`, `sticky.swipe_right` | the `.sticky-swipe` element, not bubbling | a swipe on it | none |
+| `hashchange` | `window` | the address followed the reading (a plain `HashChangeEvent`, without `oldURL` / `newURL`) | |
+| `scrolldelta` (jQuery) | the scroller | a page's own `$(window).on('scrolldelta', fn)`: the jQuery special event, with the computed scroll (`deltaX`, `deltaY`, `scrollX`, `scrollY`, `scrollT`, `screen`, `first`, `last`, `reset`) | |
+
+The module listens to `DOMContentLoaded` and `beforeunload` on `window`, the window's scroll
+(through the core), `keydown` on `window` (the magnets' keys), `touchstart` and `touchend` on
+`window` (the swipes), the wheel on `window` (with the option `passive: false`), clicks on the magnet buttons
+and on `a[href^="#"]`.
+
+## Methods (Sticky)
+
+| Method | Effect |
+|---|---|
+| `Sticky.ready(options)` | sets the options, marks ready, dispatches `sticky:ready`; returns `Sticky` |
+| `Sticky.configure(options)` | sets the options given (an `undefined` value is skipped) |
+| `Sticky.get(key)`, `Sticky.set(key, value)` | read (`null` when unset), write one option |
+| `Sticky.add(key, value)`, `Sticky.remove(key, value)` | add a value to (remove one from) a list option |
+| `Sticky.scrollTo(dict, callback, el = window)` | [`Flow.scrollTo`](core.md#flowscrollto) of `el`, unless a script has its scroll already: then the callback gets `{completed: false, reason: "refused"}` and nothing moves |
+| `Sticky.toMagnet(scroller, {top, left})` | the way to a magnet, held or not as `scrollsnap_hold` says, with the `smoothscroll_*` movement |
+| `Sticky.getMagnets(el)` | the `.sticky-magnet` elements inside `el`, top to bottom: `{element, offsetTop, offsetLeft, visible}` |
+| `Sticky.getMagnetPositions(scroller = window, axis = 'y')` | the scroll positions that meet a scroller's own magnets, in order, each once, clamped to the scroll |
+| `Sticky.getSnap(el)`, `getFirstSnap(el)`, `getLastSnap(el)`, `getPreviousSnap(el)`, `getNextSnap(el)` | the magnet closest to the scroll, the first, the last, the one before, the one after |
+| `Sticky.scrollToSnap(el, callback)`, `scrollToFirstSnap`, `scrollToLastSnap`, `scrollToPreviousSnap`, `scrollToNextSnap` | scroll there with the `smoothscroll_*` movement (the first / last: the top / bottom when there is no magnet) |
+| `Sticky.listen(el = window, full = true)` | hear a scroller: every effect, or (`full: false`) the scroll-percent triggers only |
+| `Sticky.unlisten(el = window)` | stop hearing it |
+| `Sticky.trigger(target = window)` | run the effects now, as if the scroller had scrolled |
+| `Sticky.compute(event)` | the computed scroll event (deltas, percentages, edges, timings) |
+| `Sticky.reset(el = window)` | forget the measurements kept on a scroller (jQuery data) |
+| `Sticky.onLoad(el = window)` | the load pass (next tick): listeners, buttons, swipes, hints, autoscrolls, the first run |
+| `Sticky.userScroll(el)` | [`Flow.userScroll`](core.md#programmatic-scroll); `true` for a selector or a jQuery set that matches nothing |
+| `Sticky.getScrollPadding(el)` | `Flow.scrollPadding` of `el`'s scroller |
+| `Sticky.overscrollTop(event, el)`, `overscrollBottom`, `overscrollLeft`, `overscrollRight` | whether a wheel event pushes past that edge |
+| `Sticky.onSwipe(el)` | names the elements the swipes are told to |
+| `Sticky.closestTo(x, numbers)`, `closestToZero(numbers)`, `epsilon(a, b)` | helpers: the index of the closest number, whether two numbers are within 1 |
+| `Sticky.parseDuration`, `parseToPixel`, `remToPixel`, `emToPixel`, `debounce` | the core's (see [Flow](core.md)) |
+| `Sticky.percentToPixel(p, el)` | `parseFloat(p)` times `el`'s outer width (no division by 100, as the core's) |
+| `Sticky.stops` | the `StickyStops` object |
+| `Sticky.version` | `"1.7.0"`, the module's own number |
 
 ## Scroll stops
 
@@ -303,6 +513,101 @@ back or going to an anchor, `Sticky.scrollTo`, `Flow.scrollTo`, `Flow.jump`)
 rests where it was put: the stops only complete the reader's own scrolls.
 
 `Sticky.stops` is the same object when `sticky.js` is loaded.
+
+### Options (`StickyStops.defaults`)
+
+Given to `StickyStops.attach(scroller, {...})`; the window's stops, attached by themselves, take
+`StickyStops.defaults` - change a default there before the page loads, or call
+`StickyStops.attach(window, {...})`, which merges the options given into the attached stops and
+measures again. A row marked `data-sticky-axis` takes its options from its attributes (below).
+
+| Option | Type | Default | Effect |
+|---|---|---|---|
+| `selector` | CSS selector | `".sticky-stop"` | the stops, inside the scroller (`<html>` for the page) |
+| `settle` | number (ms) | `160` | how long the scroll must have been quiet to be at rest; a glide that fires no scroll event is given up after twice that |
+| `tolerance` | number (px) | `3` | within this of a stop is at it; two stops this close are one |
+| `reach` | number (px) or string | `Infinity` | the farthest a glide may go: px, `"10rem"`, `"2em"`, `"20vh"` or `"20%"` (of the screen); a negative number or an unreadable string is no limit. Not for keys, nor for the `end` stop |
+| `duration` | number (ms) | `0` | the glide animated by the library over that time (less under 100 px, down to 40 %); `0`: the browser's smooth scroll |
+| `easing` | string, array or function | `"cubic-bezier(.65, 0, .35, 1)"` | the curve of an animated glide: `cubic-bezier(...)`, its four numbers, `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, or a function of the time gone (0..1); anything unreadable is the default |
+| `bandUp`, `bandDown` | number (px) | `0` | the band above and below a stop without `data-sticky-band-up` / `-down` |
+| `up`, `down` | boolean | `true` | a scroll heading up (left), down (right) is taken to a stop |
+| `progress` | boolean | `true` | the custom properties and the `sticky:progress` events |
+| `smooth` | boolean | `true` | glide; `false` (or `prefers-reduced-motion: reduce`): jump |
+| `axis` | `"y"`, `"x"` | `"y"` | `"x"`: the stops are met sideways, by their left edge (an element scroller); fixed when the stops are made |
+| `keys` | boolean | `false` | the keyboard goes from stop to stop (see [Keys](#keys-15)) |
+| `ends` | boolean | `false` | with `keys`: an arrow rests at a tall stop's end before going on |
+| `screens` | boolean | `false` | with `keys`: arrows and page keys read a tall stop a screen at a time |
+| `shortEnd` | number (share of the screen) | `0.25` | a stop at most this much taller than the screen rests at its top only (at least a line, 40 px; a negative or unreadable value is 0.25) |
+| `end` | boolean | `false` | the end of the scroll is a stop too |
+
+### Attributes (stops)
+
+| Attribute | On | Effect |
+|---|---|---|
+| `class="sticky-stop"` | an element in the scroller | a stop (the `selector`); one with `display: none` is not counted, nor one inside a row marked `data-sticky-axis` or inside another attached scroller |
+| `data-sticky-band-up`, `data-sticky-band-down` | a stop | its bands, px (`"90"`, `"90px"`, `"2rem"`, `"1.5em"`); at most halfway to the neighbour |
+| `data-sticky-up`, `data-sticky-down` | a stop, or a row | `"false"`, `"0"`, `"off"`, `"no"`: a reader heading that way is not taken to it; anything else: they are, against the option |
+| `data-sticky-short-end` | a stop | its own `shortEnd` |
+| `style="scroll-margin-top: ..."` (`-left` on a row) | a stop | where it rests, under the scroller's `scroll-padding-top` (`-left`), as an anchor |
+| `data-sticky-axis="x"` (or `"y"`) | a scrolling element holding stops | attached by itself, `keys` on |
+| `data-sticky-keys="false"` | such a row | keys off |
+| `data-sticky-duration`, `-settle`, `-tolerance` | such a row | numbers, its own options |
+| `data-sticky-reach`, `data-sticky-easing` | such a row | its own `reach` and `easing` |
+
+Written by the stops, on the scroller (`<html>` for the page), with two stops or more and
+`progress` on:
+
+| Custom property | Holds |
+|---|---|
+| `--sticky-stop` | the index of the stop above the scroll, from 0 |
+| `--sticky-progress` | 0 at that stop, 1 at the next, four decimals |
+| `--sticky-progress-held` | the same, held at 0 across the upper stop's band below it and at 1 across the lower stop's band above it |
+
+```css
+.hero { opacity: calc(1 - var(--sticky-progress-held, 0)); }
+```
+
+### Events (stops)
+
+Dispatched on the scroller (`<html>` for the page); both bubble to `window`.
+
+| Event | When | `detail` |
+|---|---|---|
+| `sticky:stop` | each glide, a key's included, when it starts | `{scroller, stop, top, axis, key}`: the scroller (`window` for the page), the stop's element (`<html>` for the `end` stop), where it goes, `"x"` or `"y"`, whether a key asked for it |
+| `sticky:progress` | the scroll moved between two stops (at most once a frame), or the stops were measured again | `{scroller, index, from, to, top, progress, held}`: the index of the stop above, the two stops' elements, the scroll position, the two progress numbers |
+
+```js
+window.addEventListener('sticky:stop', function (event) {
+    analytics.track('section', event.detail.stop.id);
+});
+```
+
+The stops listen, through the core, to the scroller's scroll, its interruptions (wheel, touch,
+press) and the window's resize; to `focusin` (on the document for the page: a scroll right after
+a focus change is the browser revealing the field, not the reader); to `keydown` on `window`, one
+listener for every scroller, in the bubble phase; and to the page's moments
+([`Flow.onPage`](core.md#the-pages-moments)): at each, the marked rows are attached, the rows gone
+from the page detached, and the window's stops attached (or measured again) when the document has
+any.
+
+### Methods (stops)
+
+| Member | Effect |
+|---|---|
+| `StickyStops.attach(scroller, options)` | the stops of a scroller (the window by default; `document`, `<html>` and `<body>` mean it), made if needed; on stops already attached, merges `options` and measures again. Returns the instance |
+| `StickyStops.get(scroller)` | the instance, or `null` |
+| `StickyStops.pause()`, `StickyStops.resume()` | hold every scroller's stops off (no settle, no key), e.g. while a script scrolls; nests |
+| `StickyStops.refresh()` | measure every scroller's stops again |
+| `StickyStops.scan(within)` | attach the `[data-sticky-axis]` elements holding stops (in the document, or under `within`), detach the attached elements no longer in the page |
+| `StickyStops.defaults` | the defaults (above) |
+| `StickyStops.Stops` | the class of an instance |
+| `stops.refresh()` | measure again and report the progress: after content moved |
+| `stops.measure(kept)` | the stops as measured: `[{element, top, end, rest, bandUp, bandDown, up, down, shortEnd}]`, sorted; `measure(true)` may give the kept measure back |
+| `stops.progress()` | where the scroll is between its two nearest stops (the `sticky:progress` detail), written to the custom properties; `null` with fewer than two stops |
+| `stops.state` | the last progress, or `null` |
+| `stops.pause()`, `stops.resume()` | hold this scroller's stops off; nests |
+| `stops.detach()` | stops listening, cancels a glide, removes the custom properties, forgets the instance |
+| `stops.options`, `stops.scroller`, `stops.stops` | its options, its scroller, the stops last measured |
 
 ## License
 
