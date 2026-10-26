@@ -1,16 +1,16 @@
 {#
- # A page the website-in-website demo browses (FlowFrame): a page of the site like any other, its
- # [data-flow-frame-page] block being what the frame shows of it.
+ # A page of the website-in-website demo (FlowFrame), opened on its own: a page of the site like any
+ # other, its [data-flow-frame-page] block being what the frame shows of it.
  #}
 {% extends 'base.html.twig' %}
 
-{% set here = {departure: 'Departure', line: 'On the line', terminus: 'Terminus'}[page] %}
-{% block title %}{{ here }} · Frame demo · Flow{% endblock %}
+{% set here = page == 'item' ? item.name : {home: 'Home', shop: 'Shop', journal: 'Journal', about: 'About', contact: 'Contact', sent: 'Thank you'}[page] %}
+{% block title %}{{ here }} · Kiln & Kettle · Flow's frame demo{% endblock %}
 {% block main_class %}frame-demo-page{% endblock %}
 
 {% block body %}
 <div class="wrap frame-standalone">
     <p class="doc-kicker">A page of the website-in-website demo - <a href="{{ path('app_home') }}#navigation">see it in its frame</a></p>
-    {% include 'site/_frame_page.html.twig' %}
+    <div class="browser is-standalone"><div class="browser-view">{% include 'site/_frame_page.html.twig' %}</div></div>
 </div>
 {% endblock %}

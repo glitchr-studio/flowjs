@@ -32,7 +32,12 @@ return static function (array $host): Site {
     return (new Site($static))
         ->provide(new RouteCollectionProvider(
             $routes,
-            parameters: ['app_demo_frame' => static fn (): array => [['page' => 'departure'], ['page' => 'line'], ['page' => 'terminus']]],
+            parameters: [
+                'app_demo_frame' => static fn (): array => array_map(static fn (string $page): array => ['page' => $page], App\Demo\Shop::PAGES),
+                'app_demo_frame_item' => static fn (): array => array_map(static fn (string $item): array => ['item' => $item], (new App\Demo\Shop())->slugs()),
+                'app_demo_frame_former' => static fn (): array => array_map(static fn (string $former): array => ['former' => $former], App\Demo\Shop::FORMER),
+                'app_demo_name' => static fn (): array => array_map(static fn (int $n): array => ['n' => $n], (new App\Demo\Names())->numbers()),
+            ],
             exclude: ['app_not_found'],
             actions: ['App\Controller\\'],
         ))

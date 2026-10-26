@@ -501,17 +501,17 @@
             "version": "1.x-dev",
             "source": {
                 "type": "git",
-                "url": "https://github.com/glitchr-studio/omnidocs-jsdoc.git",
-                "reference": "e208d60ea0d6ffb10892cc59fc69901e1cc20dc3"
+                "url": "https://github.com/glitchr-omnisense/omnidocs-jsdoc.git",
+                "reference": "96c0442b0aff8fb10d57140a87dbb1c95a6598a1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glitchr-studio/omnidocs-jsdoc/zipball/e208d60ea0d6ffb10892cc59fc69901e1cc20dc3",
-                "reference": "e208d60ea0d6ffb10892cc59fc69901e1cc20dc3",
+                "url": "https://api.github.com/repos/glitchr-omnisense/omnidocs-jsdoc/zipball/96c0442b0aff8fb10d57140a87dbb1c95a6598a1",
+                "reference": "96c0442b0aff8fb10d57140a87dbb1c95a6598a1",
                 "shasum": ""
             },
             "require": {
-                "omniscient/omnidocs": "^1.0@dev",
+                "omnisense/omnidocs": "^1.0@dev",
                 "php": ">=8.2"
             },
             "require-dev": {
@@ -543,7 +543,7 @@
                 }
             ],
             "description": "Omnidocs JSDoc: a JavaScript library's API reference from the JSON JSDoc explains (jsdoc -X) - a page per global, its functions, methods and properties with their comments, parameters and source lines; a library of browser scripts (IIFE, UMD) named by the globals it sets.",
-            "homepage": "https://github.com/glitchr-studio/omnidocs-jsdoc",
+            "homepage": "https://github.com/glitchr-omnisense/omnidocs-jsdoc",
             "keywords": [
                 "api reference",
                 "documentation",
@@ -552,28 +552,28 @@
                 "omnidocs"
             ],
             "support": {
-                "issues": "https://github.com/glitchr-studio/omnidocs-jsdoc/issues",
-                "source": "https://github.com/glitchr-studio/omnidocs-jsdoc/tree/1.x"
+                "issues": "https://github.com/glitchr-omnisense/omnidocs-jsdoc/issues",
+                "source": "https://github.com/glitchr-omnisense/omnidocs-jsdoc/tree/1.x"
             },
-            "time": "2026-10-25T14:24:27+00:00"
+            "time": "2026-10-26T14:21:09+00:00"
         },
         {
             "name": "omnidocs/markdown",
             "version": "1.x-dev",
             "source": {
                 "type": "git",
-                "url": "https://github.com/glitchr-studio/omnidocs-markdown.git",
-                "reference": "67e47dea730b79d373c1e9323d69dbe3fba2e46f"
+                "url": "https://github.com/glitchr-omnisense/omnidocs-markdown.git",
+                "reference": "15cb171229ecdb08c282bd70f04dde058554912b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glitchr-studio/omnidocs-markdown/zipball/67e47dea730b79d373c1e9323d69dbe3fba2e46f",
-                "reference": "67e47dea730b79d373c1e9323d69dbe3fba2e46f",
+                "url": "https://api.github.com/repos/glitchr-omnisense/omnidocs-markdown/zipball/15cb171229ecdb08c282bd70f04dde058554912b",
+                "reference": "15cb171229ecdb08c282bd70f04dde058554912b",
                 "shasum": ""
             },
             "require": {
                 "league/commonmark": "^2.6",
-                "omniscient/omnidocs": "^1.0@dev",
+                "omnisense/omnidocs": "^1.0@dev",
                 "php": ">=8.2",
                 "symfony/yaml": "^6.4|^7.0|^8.0"
             },
@@ -606,7 +606,7 @@
                 }
             ],
             "description": "Omnidocs Markdown: a folder of Markdown files as an omnidocs manual - its contents from the folders and the files (their front matter, a number before their name), each page rendered with league/commonmark as symfony.com/doc writes its pages: callouts (note, tip, caution, versionadded...), code with a caption and in tabs, version badges, links between pages and to the repository; and a changelog read as releases.",
-            "homepage": "https://github.com/glitchr-studio/omnidocs-markdown",
+            "homepage": "https://github.com/glitchr-omnisense/omnidocs-markdown",
             "keywords": [
                 "changelog",
                 "commonmark",
@@ -616,10 +616,10 @@
                 "omnidocs"
             ],
             "support": {
-                "issues": "https://github.com/glitchr-studio/omnidocs-markdown/issues",
-                "source": "https://github.com/glitchr-studio/omnidocs-markdown/tree/1.x"
+                "issues": "https://github.com/glitchr-omnisense/omnidocs-markdown/issues",
+                "source": "https://github.com/glitchr-omnisense/omnidocs-markdown/tree/1.x"
             },
-            "time": "2026-10-25T14:01:23+00:00"
+            "time": "2026-10-26T05:24:13+00:00"
         },
         {
             "name": "omnisense/omnidocs",
@@ -627,12 +627,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/glitchr-omnisense/omnidocs.git",
-                "reference": "524f471308e940f2adfbb9712d124bbdfbce6852"
+                "reference": "9ce91ac82a808ba0cebb2c10190af26e4e86ead0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glitchr-omnisense/omnidocs/zipball/524f471308e940f2adfbb9712d124bbdfbce6852",
-                "reference": "524f471308e940f2adfbb9712d124bbdfbce6852",
+                "url": "https://api.github.com/repos/glitchr-omnisense/omnidocs/zipball/9ce91ac82a808ba0cebb2c10190af26e4e86ead0",
+                "reference": "9ce91ac82a808ba0cebb2c10190af26e4e86ead0",
                 "shasum": ""
             },
             "require": {
@@ -694,7 +694,7 @@
                 "issues": "https://github.com/glitchr-omnisense/omnidocs/issues",
                 "source": "https://github.com/glitchr-omnisense/omnidocs/tree/1.x"
             },
-            "time": "2026-10-26T05:24:12+00:00"
+            "time": "2026-10-26T14:27:08+00:00"
         },
         {
             "name": "psr/cache",
