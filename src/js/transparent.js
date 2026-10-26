@@ -8,6 +8,25 @@
 // the hash of the address, the jQuery plugins, and the moments a page is loaded
 // - which this module announces (transparent:load) so that the others attach
 // themselves again to the page swapped in. Needs jQuery.
+/**
+ * @file Transparent, the navigation without page loads: links and forms fetched in the background and swapped in place, the history kept, the head and scripts in step, a progress bar that never blinks, nested panels.
+ */
+/**
+ * Told on the window once a page is swapped in (and at the first load): the moment to set up what the new page holds.
+ * @event Transparent#transparent:load
+ */
+/**
+ * Told on the window when a link or a form is taken over, before its page is fetched.
+ * @event Transparent#transparent:link
+ */
+/**
+ * Told on the window before the page in place is left for the next one.
+ * @event Transparent#transparent:beforeunload
+ */
+/**
+ * Told on the window at each step of the progress bar: detail {state} - "shown", "done", "hidden".
+ * @event Transparent#transparent:progress
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);

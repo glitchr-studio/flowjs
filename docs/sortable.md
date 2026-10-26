@@ -194,6 +194,87 @@ and calls `onChange` with the new order. At the first or last place nothing happ
 `handle` the keys do nothing; give the handle a `tabindex="0"` (or make it a `button`) for it to
 take the focus. The keys move along the DOM's order, also in a grid.
 
+## A tree (`StickySortable.Tree`)
+
+Nested lists - an item holding a list of its own - reordered and re-parented: a book's chapters
+and their sections, a menu and its entries. New in 1.6.
+
+```html
+<ol id="toc">
+    <li data-sortable-item data-id="intro">
+        <div class="row"><button class="grip" aria-label="Move">⠿</button>
+            <button data-sortable-toggle aria-label="Fold">▾</button> Introduction</div>
+        <ol>
+            <li data-sortable-item data-id="why"><div class="row"><button class="grip">⠿</button> Why</div></li>
+        </ol>
+    </li>
+    <li data-sortable-item data-id="notes" data-sortable-leaf>…</li>
+</ol>
+```
+
+```js
+const tree = new StickySortable.Tree(document.getElementById('toc'), { handle: '.grip', maxDepth: 2 });
+document.getElementById('toc').addEventListener('sortable:change', (e) => save(e.detail.tree));
+tree.serialize();   // [{ id: 'intro', children: [{ id: 'why', children: [] }] }, { id: 'notes', children: [] }]
+```
+
+An item's children are its first `ol`/`ul` child (`lists`); the list is made when an item takes its
+first child and removed when its last one leaves.
+
+**The pointer.** Dragged by its handle, the item follows the pointer and a marker
+(`li.is-tree-marker`, `data-depth` and `--sortable-depth` on it) shows where it will land: between
+two items, at the level the pointer's horizontal place asks for - one `indent` (24px) to the right is
+a child of the item above, one to the left the level of its parent. The level is kept within what the
+neighbours allow: never deeper than one below the item above, never shallower than the item below
+(that would take the item below away from its parent), never under an item that accepts no child or
+is folded, never deeper than `maxDepth` counting the dragged item's own subtree. On a touch screen
+the drag begins after a long press (`longPress`, 350ms, `is-held` meanwhile); a finger that moves
+before is a scroll. A `pointercancel` puts nothing anywhere.
+
+**The keyboard**, on a focused handle:
+
+| Key | Does |
+|---|---|
+| <kbd>ArrowUp</kbd>, <kbd>ArrowDown</kbd> | moves the item before the previous sibling, after the next one |
+| <kbd>ArrowRight</kbd> | makes it the last child of the sibling above (unfolded if it was folded) |
+| <kbd>ArrowLeft</kbd> | takes it out of its parent, just after it |
+
+Each move, or a move refused (the first sibling going up, a leaf, `maxDepth`), is said in an
+`aria-live="polite"` region added after the tree (`.sortable-live`, visually hidden), in the `labels`
+option's words; the focus stays on the handle.
+
+**Folding.** A `[data-sortable-toggle]` button in an item folds and unfolds its children
+(`is-collapsed` on the item, `hidden` on its list, `aria-expanded` and `aria-controls` on the button);
+it is hidden while the item has no children. `tree.collapse(item)`, `tree.expand(item)`.
+
+| Option (`StickySortable.Tree.defaults`) | Default | |
+|---|---|---|
+| `handle` | `null` | the handle's selector, inside an item; `null` drags the whole item |
+| `items` | `'[data-sortable-item]'` | an item |
+| `lists` | `'ol, ul'` | an item's own list of children |
+| `indent` | `24` | px of horizontal movement that is one level |
+| `maxDepth` | `Infinity` | levels below the root: `0` a flat list, `1` children and no grandchildren |
+| `accepts` | `null` | `function (item)`: may it take children; by default, all but `[data-sortable-leaf]` |
+| `dragThreshold` | `4` | px before a press is a drag |
+| `longPress` | `350` | ms a finger holds the handle before the item is dragged |
+| `draggingClass`, `markerClass`, `collapsedClass` | `is-dragging`, `is-tree-marker`, `is-collapsed` | |
+| `labels` | English | `moved`, `nested`, `outdented`, `refused`, with `%item%`, `%index%`, `%count%`, `%depth%`, `%parent%` |
+| `onChange` | `null` | `function (detail)` after each move |
+
+After each move, `onChange(detail)` and a `sortable:change` event on the root (it bubbles), detail
+`{item, parent, index, depth, tree}`: the item, its new parent item (`null` at the top), its place
+among its siblings, its level (0 at the top), and `tree.serialize()` - nested `{id, children}`, the
+id being `data-id`, else `id`, else the item's text. `tree.destroy()` lets go of the listeners and the
+live region; `$(ol).stickySortableTree(options)` makes one per root.
+
+The marker has no style of its own; a line at its level is enough:
+
+```css
+.is-tree-marker { list-style: none; height: 0; position: relative; }
+.is-tree-marker::before { content: ""; position: absolute; inset: -1px 0 auto 0; height: 2px; background: currentColor; }
+.is-dragging { opacity: .6; }
+```
+
 ## Instance
 
 | Member | Holds or does |
@@ -211,6 +292,7 @@ There is no `destroy()`: the listeners stay as long as the container. `$(el).sti
 makes one per element, keeps it in `el._stickySortable`, returns the jQuery set, and does
 nothing for an element that has one already (the new options are ignored).
 
-The module dispatches no event: `onChange` and `onMerge` are the way to hear a change. It reads no
+A flat StickySortable dispatches no event: `onChange` and `onMerge` are the way to hear a change
+(a tree also says `sortable:change`). It reads no
 data attribute besides the default `items` selector (`[data-sortable-item]`), and sets only the
 classes and inline styles above.

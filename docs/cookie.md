@@ -594,6 +594,46 @@ screen. Everything `hidden` inside it is `display: none`; nothing moves under
 
 The `variables` option sets such properties on the banner itself.
 
+### Where it floats
+
+The position, by order of precedence (1.6):
+
+1. while the button `follow` names floats (its `position` is `fixed`), next to it - see below;
+2. the `position` option, or `Cookie.defaults.position` set once for every banner of the site;
+3. the banner's own `data-cookie-position`, as written in the site's HTML;
+4. none: the stylesheet's corner, bottom right - what every site had before 1.6, so a site that
+   names nothing sees no change.
+
+```js
+Cookie.defaults.position = 'top-right';               // the site's default, before Cookie.ready()
+Cookie.ready({ position: 'bottom-center', gutter: 24 });   // or for this configuration
+```
+
+```html
+<div data-cookie-banner data-cookie-position="bottom-left">…</div>   <!-- or on the element -->
+```
+
+The six corners and edges are `bottom-left`, `bottom-center`, `bottom-right`, `top-left`,
+`top-center` and `top-right`; `center` is the middle of the screen. `gutter` is the room kept from
+the screen's edges (`--cookie-gap`).
+
+**Following the cookie button.** A site whose cookie button floats in a corner (as omnibase/consent's
+circle does) names it in `follow`. While it floats (it, or an element around it, is `position: fixed`), the banner opens in the corner the button is in -
+left, centre or right by thirds of the width, top or bottom by halves of the height - just past the
+button and aligned with it: `data-cookie-position` says the corner, `data-cookie-following` is set,
+and `--cookie-follow-block` (the distance from the top or bottom edge, past the button) and
+`--cookie-follow-inline` (from the left or right edge) hold the distances, measured at each opening and
+when the window is resized; css/cookie.scss uses them. A button in the flow of the page (not fixed) is
+not followed: the position above applies.
+
+```js
+Cookie.ready({ follow: '.cookie-button', position: 'bottom-left' });
+```
+
+A site with another `prefix` gets the same attributes under it (`data-consent-position`,
+`data-consent-following`): omnibase/consent, which passes its `consent.position`, is written exactly
+as before.
+
 ### The countdown
 
 None by default: under the GDPR a silence is not a consent. A site that wants
@@ -688,7 +728,9 @@ pulse (`classes.tick` is not set) and the root has `classes.reduced`.
 | `signals` | `{gpc: false, dnt: false}` | see [Privacy signals](#privacy-signals) |
 | `autoOpen` | `true` | show the banner by itself while an answer is wanted |
 | `reopen` | `'details'` | what `data-cookie-open` and `Cookie.open()` show once answered: `details` or `banner` |
-| `position` | `null` | any word, written in `data-cookie-position` for the stylesheet |
+| `position` | `null` | where the banner floats, written in `data-cookie-position`: `bottom-left`, `bottom-center`, `bottom-right`, `top-left`, `top-center`, `top-right`, `center` (or any word of the site's stylesheet); `null` keeps the banner's own attribute, else the stylesheet's corner (bottom right) - see [Where it floats](#where-it-floats) |
+| `gutter` | `null` | its distance to the screen's edges: px (a number) or a length, written as `--cookie-gap` on the banner; `null` leaves the stylesheet's (`1rem`) |
+| `follow` | `null` | the cookie button the banner opens next to while that button floats (`position: fixed`, itself or an element around it): an element, a selector, or a function returning one |
 | `container` | `null` | where a banner the library builds is put (a selector or an element); the end of `<body>` |
 | `template` | `null` | the banner's HTML: a selector, an element, a string of HTML, a function |
 | `root` | `null` | which element of the page is the banner, when it has several places for it: an element, a selector, a function (asked again at each opening). See [Several places in a page](#several-places-in-a-page) |

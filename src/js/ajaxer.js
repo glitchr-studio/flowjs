@@ -6,6 +6,9 @@
 // it, a retry on failure and a limit of requests in flight (the oldest aborted,
 // or the new one refused, as `cancelable` says). What it shares with the other
 // modules - the durations ("250ms"), $.fn.serializeObject - is the core's.
+/**
+ * @file Ajaxer, named AJAX channels: a name with its address, method, throttle, debounce, loader and retries, sent with one call.
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);

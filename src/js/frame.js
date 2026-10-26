@@ -30,6 +30,17 @@
 //
 // While a page takes longer than `delay` (200ms), the frame carries
 // .flow-frame-loading - on the progress bar's timing, never a blink.
+/**
+ * @file FlowFrame, a website in the website: a frame of the page whose links and forms load their page into the frame alone, with its own history and address.
+ */
+/**
+ * Told on the frame (it bubbles) after each page it shows: detail {url, title, frame}.
+ * @event FlowFrame#flow:frame:load
+ */
+/**
+ * Told on the frame when no page came: detail {url, status}.
+ * @event FlowFrame#flow:frame:error
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);

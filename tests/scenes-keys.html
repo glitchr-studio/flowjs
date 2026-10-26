@@ -1,0 +1,150 @@
+<!doctype html>
+<!--
+  StickyScenes keys and sideways (1.6). A pinned scene: ArrowDown, PageDown and Space take it from
+  step to step (the progress where each step begins, then its end), then to the section after it;
+  ArrowUp, PageUp and Shift+Space back, then to the section before; StickyStops (keys on) leaves a key
+  the scene took alone; a key in a field is the field's. A sideways scene (data-scene-axis="x"): its
+  progress is its track's scrollLeft over its range, its steps where its panels begin, ArrowRight and
+  ArrowLeft on the focused track go a step at a time, data-scene-touched at the first movement, the
+  page's vertical scroll is never held.
+-->
+<html>
+<head><meta charset="utf-8"><title>scenes keys</title>
+<style>
+    body { margin: 0; font: 14px sans-serif; }
+    html { scroll-behavior: auto; }
+    .before, .after, .between { height: 900px; background: #eee; }
+    .sticky-scene { position: relative; height: calc(100vh + var(--scene-length, 100vh)); }
+    .sticky-scene-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; background: #ccd; }
+    .sticky-scene[data-scene-axis="x"] { height: auto; }
+    .sticky-scene[data-scene-axis="x"] .sticky-scene-stage { position: relative; height: auto; }
+    #track { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; width: 400px; height: 200px; }
+    #track > div { flex: 0 0 100%; scroll-snap-align: start; }
+    .sticky-scene[data-scene-touched] #hint { visibility: hidden; }
+</style></head>
+<body>
+<section class="before sticky-stop" id="top">before <input id="field"></section>
+<section class="sticky-scene sticky-stop" id="scene" data-scene-length="900px" data-scene-steps="0.3, 0.6">
+    <div class="sticky-scene-stage"><button id="press">a button</button></div>
+</section>
+<section class="between sticky-stop" id="after">after</section>
+<section class="sticky-scene" id="side" data-scene-axis="x">
+    <div class="sticky-scene-stage">
+        <div id="track" data-scene-track><div>one</div><div>two</div><div>three</div><div>four</div></div>
+        <span id="hint" data-scene-hint>→</span>
+    </div>
+</section>
+<section class="after">end</section>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/stops.js"></script>
+<script src="../src/js/scenes.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        // Glides at once: smooth scrolls are the browser's, the test reads where they go.
+        var scrollTo = window.scrollTo;
+        var asked = [];
+        window.scrollTo = function (o) { if (o && typeof o === 'object') { asked.push(o.top); scrollTo.call(window, { top: o.top, behavior: 'auto' }); } else scrollTo.apply(window, arguments); };
+        StickyStops.attach(window, { keys: true });
+        var scene = document.getElementById('scene');
+        var s = StickyScenes.get(scene) || StickyScenes.attach(scene);
+        var press = function (key, shift, target) {
+            var e = new KeyboardEvent('keydown', { key: key, shiftKey: !!shift, bubbles: true, cancelable: true });
+            (target || document.body).dispatchEvent(e);
+            return e;
+        };
+        var settle = async function () { await H.after(30); await H.frame(); await H.frame(); };
+        var progress = function () { return parseFloat(scene.style.getPropertyValue('--scene-progress')); };
+        var start = scene.offsetTop;
+
+        H.scroll(start);
+        await settle();
+        H.check(s.pinned() && progress() === 0, 'at its start the scene is pinned, progress 0', progress());
+        var e = press('ArrowDown');
+        await settle();
+        H.check(e.defaultPrevented && Math.abs(progress() - 0.3) < 0.01, 'ArrowDown: to where the second step begins', progress());
+        press('PageDown');
+        await settle();
+        H.check(Math.abs(progress() - 0.6) < 0.01 && scene.dataset.sceneStep === '2', 'PageDown: the third step', progress());
+        press(' ');
+        await settle();
+        H.check(progress() === 1 && s.pinned(), 'Space: the scene\'s end, still pinned', progress());
+        press('ArrowDown');
+        await settle();
+        H.check(Math.abs(scrollY - document.getElementById('after').offsetTop) <= 1, 'past its end: the section after it', scrollY + ' vs ' + document.getElementById('after').offsetTop);
+        e = press('ArrowUp');
+        await settle();
+        H.check(e.defaultPrevented && progress() === 1 && s.pinned(), 'from the top of the section after, ArrowUp: back to the scene\'s end', progress());
+        press('ArrowUp');
+        await settle();
+        H.check(Math.abs(progress() - 0.6) < 0.01, 'ArrowUp from the end: the third step\'s start', progress());
+        press(' ', true);
+        await settle();
+        H.check(Math.abs(progress() - 0.3) < 0.01, 'Shift+Space: the second', progress());
+        press('PageUp');
+        await settle();
+        H.check(progress() === 0, 'PageUp: the first', progress());
+        press('ArrowUp');
+        await settle();
+        H.check(scrollY < start && scrollY >= start - innerHeight - 1, 'before its start: the section before (its last screen)', scrollY);
+
+        // Keys that are not the scene's.
+        H.scroll(start + 270);
+        await settle();
+        var before = progress();
+        e = press('ArrowDown', true);
+        await settle();
+        H.check(!e.defaultPrevented && progress() === before, 'Shift+ArrowDown is the browser\'s (a selection)');
+        e = press(' ', false, document.getElementById('press'));
+        await settle();
+        H.check(!e.defaultPrevented, 'Space on a button presses it');
+        var mine = function (ev) { ev.preventDefault(); };
+        document.addEventListener('keydown', mine, true);
+        e = press('ArrowDown');
+        await settle();
+        document.removeEventListener('keydown', mine, true);
+        H.check(progress() === before, 'a key the page took first is left alone', progress());
+        scene.setAttribute('data-scene-keys', 'false');
+        var off = new StickyScenes.Scene(scene);
+        H.check(off.options.keys === false, 'data-scene-keys="false" turns the keys off');
+        off.destroy();
+        StickyScenes.attach(scene);
+
+        // Sideways.
+        var side = document.getElementById('side'), track = document.getElementById('track');
+        var x = StickyScenes.get(side);
+        H.check(x && x.horizontal && track.getAttribute('tabindex') === '0' && track.getAttribute('role') === 'region' && track.getAttribute('aria-label'), 'a sideways scene: its track made focusable, a region with a name');
+        H.check(JSON.stringify(x.steps) === JSON.stringify([0.3333, 0.6667, 1]), 'its steps: where its panels begin', JSON.stringify(x.steps));
+        H.check(!side.style.getPropertyValue('--scene-length') && side.getBoundingClientRect().height < 400, 'no length: the scene is its own height, the page never held');
+        H.scroll(side.offsetTop - 100);
+        await settle();
+        H.check(side.dataset.sceneState === 'before' && !side.hasAttribute('data-scene-touched') && getComputedStyle(document.getElementById('hint')).visibility === 'visible', 'untouched: progress 0, the hint shown');
+        track.scrollLeft = 400;
+        await settle();
+        var xp = parseFloat(side.style.getPropertyValue('--scene-progress'));
+        H.check(Math.abs(xp - 1 / 3) < 0.01 && side.dataset.sceneStep === '1', 'scrolled one panel: a third, the second step', xp);
+        H.check(side.hasAttribute('data-scene-touched') && getComputedStyle(document.getElementById('hint')).visibility === 'hidden', 'the first movement: touched, the hint gone');
+        track.scrollLeft = 0;
+        await settle();
+        H.check(side.hasAttribute('data-scene-touched'), 'and it does not come back');
+        track.focus();
+        var y0 = scrollY;
+        e = press('ArrowRight', false, track);
+        await H.until(function () { return track.scrollLeft >= 400; }, 1500);
+        H.check(e.defaultPrevented && Math.abs(track.scrollLeft - 400) <= 1, 'ArrowRight on the focused track: one step', track.scrollLeft);
+        e = press('End', false, track);
+        await H.until(function () { return track.scrollLeft >= 1200 && side.dataset.sceneState === 'after'; }, 1500);
+        H.check(Math.abs(track.scrollLeft - 1200) <= 1 && side.dataset.sceneState === 'after' && side.dataset.sceneStep === '3', 'End: the last panel, progress 1, step 3 (a step per panel)', track.scrollLeft + ' ' + side.dataset.sceneStep);
+        e = press('ArrowLeft', false, track);
+        await H.until(function () { return track.scrollLeft <= 800; }, 1500);
+        H.check(Math.abs(track.scrollLeft - 800) <= 1, 'ArrowLeft: a step back', track.scrollLeft);
+        H.check(scrollY === y0, 'the page did not move', scrollY + ' ' + y0);
+        e = press('ArrowDown', false, track);
+        H.check(!e.defaultPrevented, 'ArrowDown on the track: not the scene\'s (the page\'s own scroll)');
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

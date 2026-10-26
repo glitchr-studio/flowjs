@@ -21,3 +21,39 @@
 }
 .sticky-scene[data-scene-reduced] { height: auto; }
 .sticky-scene[data-scene-reduced] .sticky-scene-stage { position: relative; top: 0; }
+
+/* Sideways (data-scene-axis="x"): no pinning, no length - the track is a
+   native horizontal scroller, its panels the snap points, the page's
+   vertical scroll left free. The hint ([data-scene-hint]) blinks until the
+   first movement (data-scene-touched), still under reduced motion. */
+.sticky-scene[data-scene-axis="x"] { height: auto; }
+.sticky-scene[data-scene-axis="x"] .sticky-scene-stage { position: relative; top: auto; height: auto; }
+.sticky-scene [data-scene-track] {
+	display: flex;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scroll-snap-type: x mandatory;
+	overscroll-behavior-x: contain;
+	scrollbar-width: none;
+}
+.sticky-scene [data-scene-track]::-webkit-scrollbar { display: none; }
+.sticky-scene [data-scene-track] > *,
+.sticky-scene [data-scene-panel] {
+	flex: 0 0 100%;
+	scroll-snap-align: start;
+	scroll-snap-stop: always;
+}
+.sticky-scene [data-scene-track]:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.sticky-scene [data-scene-hint] {
+	pointer-events: none;
+	transition: opacity .3s ease, visibility 0s linear .3s;
+	animation: scene-hint 1.4s ease-in-out infinite;
+}
+.sticky-scene[data-scene-touched] [data-scene-hint] { opacity: 0; visibility: hidden; animation: none; }
+@keyframes scene-hint {
+	0%, 100% { opacity: .25; transform: translateX(0); }
+	50% { opacity: 1; transform: translateX(.35em); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.sticky-scene [data-scene-hint] { animation: none; transition: none; }
+}
