@@ -18,7 +18,9 @@
     function boot() {
         // The header steps aside on the way down (.sticky-top); the address is omnidocs' to keep on the
         // manual, so Sticky leaves it alone.
-        if (window.Sticky) Sticky.ready({ scrollhide: true, replacehash: false, scrollsnap: false, autoscroll: false, swipe: false });
+        // The address follows the section read on the showcase (its sections are .sticky-headlines); on the
+        // manual it is omnidocs' table of contents that keeps it (page()).
+        if (window.Sticky) Sticky.ready({ scrollhide: true, replacehash: !!document.querySelector('main.home'), scrollsnap: false, autoscroll: false, swipe: false });
         // The showcase's sections are stops: the arrows and Space go from one to the next, a tall one is
         // read a screen at a time, and going back up is free.
         if (window.StickyStops) StickyStops.attach(window, { keys: true, screens: true, up: false, reach: '40vh' });
@@ -68,8 +70,11 @@
             var here = a.pathname.replace(/\/$/, '') === location.pathname.replace(/\/$/, '');
             if (here) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
+        if (window.Sticky && Sticky.set) Sticky.set('replacehash', !!$('main.home'));
         stops();
         navigation();
+        bar();
+        scene();
         sortable();
         ajaxer();
         stickyButton();
@@ -87,6 +92,54 @@
             if (out && e.detail) out.textContent = 'stop ' + Math.min(5, e.detail.index + (e.detail.progress >= 0.5 ? 2 : 1)) + ' of 5';
         });
         if (window.StickyStops.scan) StickyStops.scan();
+    }
+
+    // The progress bar: its look switched (a class of <html> setting its custom properties), its timing shown
+    // on a load the button makes (html.loading for a while: the bar's own logic decides, as for a navigation).
+    function bar() {
+        var card = $('[data-demo="bar"]');
+        if (!card || card.dataset.ready) return;
+        card.dataset.ready = '1';
+        var root = document.documentElement;
+        var out = $('[data-bar-timeline]', card);
+        $$('[data-bar-look]', card).forEach(function (button) {
+            var rainbow = button.dataset.barLook === 'rainbow';
+            button.setAttribute('aria-pressed', String(rainbow === root.classList.contains('bar-rainbow')));
+            button.addEventListener('click', function () {
+                root.classList.toggle('bar-rainbow', rainbow);
+                $$('[data-bar-look]', card).forEach(function (b) { b.setAttribute('aria-pressed', String(b === button)); });
+            });
+        });
+        $$('[data-bar-load]', card).forEach(function (button) {
+            button.addEventListener('click', function () {
+                var ms = +button.dataset.barLoad, t0 = performance.now(), steps = ['0ms load starts'];
+                var say = function () { out.textContent = steps.join(' · '); };
+                var told = function (e) { steps.push(Math.round(performance.now() - t0) + 'ms bar ' + e.detail.state); say(); if (e.detail.state === 'hidden') window.removeEventListener('transparent:progress', told); };
+                window.addEventListener('transparent:progress', told);
+                root.classList.add('loading');
+                say();
+                setTimeout(function () {
+                    root.classList.remove('loading');
+                    steps.push(ms + 'ms load ends');
+                    say();
+                    setTimeout(function () {
+                        if (steps.length === 2) { steps.push('no bar at all: under the delay'); say(); window.removeEventListener('transparent:progress', told); }
+                    }, 300);
+                }, ms);
+            });
+        });
+    }
+
+    // The scene's meter: what scene:progress says.
+    function scene() {
+        var section = $('#scenes.sticky-scene');
+        var meter = $('[data-scene-meter]');
+        if (!section || !meter || section.dataset.meter) return;
+        section.dataset.meter = '1';
+        section.addEventListener('scene:progress', function (e) {
+            meter.textContent = 'progress ' + e.detail.progress.toFixed(2) + ' · step ' + e.detail.step + (e.detail.state === 'reduced' ? ' · reduced motion: its end' : '');
+        });
+        if (window.StickyScenes) { StickyScenes.scan(); var s = StickyScenes.get(section); if (s) s.update(true); }
     }
 
     function navigation() {

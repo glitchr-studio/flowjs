@@ -1,0 +1,15 @@
+{# The block of a frame demo page: what FlowFrame shows of it (page: departure, line, terminus). #}
+{% set pages = {
+    departure: {title: 'Departure', next: 'line', text: 'This page was fetched in the background and swapped into the frame. The page around it did not move: look at your address bar - and at the counter of the Navigation demo, which did not count it.'},
+    line: {title: 'On the line', next: 'terminus', text: 'Back and Forward in the frame go through the pages it showed, from memory, where you left them. Your browser\'s own Back is not the frame\'s: it would leave the showcase.'},
+    terminus: {title: 'Terminus', next: 'departure', text: 'A frame needs nothing of the server: these are three static pages of this site. Its links and forms are its own; Transparent, which navigates the site, never hears them.'}
+} %}
+{% set here = pages[page] %}
+<div data-flow-frame-page>
+    <article class="mini-page is-{{ page }}">
+        <p class="mini-stations">{% for name, p in pages %}<a href="{{ path('app_demo_frame', {page: name}) }}"{% if name == page %} aria-current="page"{% endif %}><span class="station"></span>{{ p.title }}</a>{% endfor %}</p>
+        <h1>{{ here.title }}</h1>
+        <p>{{ here.text }}</p>
+        <p><a class="button" href="{{ path('app_demo_frame', {page: here.next}) }}">Next stop: {{ pages[here.next].title }} →</a></p>
+    </article>
+</div>
