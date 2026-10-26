@@ -21,4 +21,6 @@
 /public/vendor/
 /public/fonts/
 /public/omnidocs/
+/templates/omnibase/*
+!/templates/omnibase/.gitkeep
 ###< the website's build ###
