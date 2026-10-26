@@ -1,13 +1,14 @@
 {
   "name": "@glitchr/flowjs",
-  "version": "1.5.4",
-  "description": "Navigation without page loads, sticky scroll effects, scroll stops, sortable lists, AJAX channels, cookies and consent - one library, one module per feature",
+  "version": "1.6.0",
+  "description": "Navigation without page loads (and a website in the website), sticky scroll effects, scroll stops, scroll-driven scenes, sortable lists, AJAX channels, cookies and consent - one library, one module per feature",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
     "./navigation": "./src/navigation.js",
     "./sticky": "./src/sticky.js",
     "./stops": "./src/stops.js",
+    "./scenes": "./src/scenes.js",
     "./sortable": "./src/sortable.js",
     "./ajaxer": "./src/ajaxer.js",
     "./cookie": "./src/cookie.js",

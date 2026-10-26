@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  StickyScenes (1.6): a scene's stage pinned while the page scrolls through its length, its progress
+  0 to 1 in --scene-progress and in scene:progress, its steps, both ways; an image sequence drawn with
+  the frame of the progress; a scene that is a stop (StickyStops): the scroll rests at its start and is
+  free across it, never pulled out half-way.
+-->
+<html>
+<head><meta charset="utf-8"><title>scenes</title>
+<style>
+    body { margin: 0; font: 14px sans-serif; }
+    .before, .after { height: 900px; background: #eee; }
+    .sticky-scene { position: relative; height: calc(100vh + var(--scene-length, 100vh)); }
+    .sticky-scene-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; background: #ccd; }
+    .sticky-scene[data-scene-reduced] { height: auto; }
+    .sticky-scene[data-scene-reduced] .sticky-scene-stage { position: relative; }
+    #box { width: 100px; height: 100px; background: #333; transform: translateX(calc(var(--scene-progress, 0) * 300px)); }
+</style></head>
+<body>
+<section class="before sticky-stop" id="top">before</section>
+<section class="sticky-scene sticky-stop" id="scene" data-scene-length="1000px" data-scene-steps="0.25, 0.5, 0.75">
+    <div class="sticky-scene-stage"><div id="box"></div><canvas id="seq" width="10" height="10"></canvas></div>
+</section>
+<section class="after sticky-stop" id="after">after</section>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script>
+    // Five frames as pictures (data: SVGs, each a colour), named in the canvas before the module reads it.
+    (function () {
+        var colours = ['#f00', '#f80', '#ff0', '#0f0', '#00f'];
+        document.getElementById('seq').setAttribute('data-scene-frames-list', JSON.stringify(colours.map(function (c) {
+            return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="' + c + '"/></svg>');
+        })));
+    })();
+</script>
+<script src="../src/js/stops.js"></script>
+<script src="../src/js/scenes.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var scene = document.getElementById('scene');
+        var told = [];
+        scene.addEventListener('scene:progress', function (e) { told.push(e.detail); });
+        var prop = function (name) { return parseFloat(scene.style.getPropertyValue(name)); };
+        var vh = innerHeight;
+        await H.after(100);
+        H.check(!!StickyScenes.get(scene), 'a .sticky-scene is attached by itself');
+        H.check(scene.style.getPropertyValue('--scene-length') === '1000px' && Math.round(scene.getBoundingClientRect().height) === vh + 1000, 'the scene is its stage plus its length', scene.getBoundingClientRect().height);
+        H.check(prop('--scene-progress') === 0 && scene.dataset.sceneState === 'before', 'before the scene: progress 0', scene.style.cssText);
+
+        var start = scene.offsetTop;
+        H.scroll(start + 500);
+        await H.after(60);
+        await H.frame();
+        var stage = scene.querySelector('.sticky-scene-stage').getBoundingClientRect();
+        H.check(Math.abs(stage.top) <= 1, 'half-way through: the stage stays on the screen', stage.top);
+        H.check(Math.abs(prop('--scene-progress') - 0.5) < 0.01 && scene.dataset.sceneStep === '2' && scene.dataset.sceneState === 'active', 'half-way: progress 0.5, the second step', scene.style.cssText);
+        H.check(Math.abs(prop('--scene-step-progress')) < 0.02, 'the step\'s own progress starts again at each step', prop('--scene-step-progress'));
+        var last = told[told.length - 1];
+        H.check(last && Math.abs(last.progress - 0.5) < 0.01 && last.step === 2, 'scene:progress tells it', JSON.stringify(last && { p: last.progress, s: last.step }));
+        await H.after(150);
+        H.check(document.getElementById('seq').getAttribute('data-scene-frame') === '3', 'the image sequence draws the frame of the progress (3 of 5)', document.getElementById('seq').getAttribute('data-scene-frame'));
+
+        // A scene that is a stop: resting inside it, the stops leave the page where it is.
+        await H.after(900);
+        H.check(Math.abs(scrollY - (start + 500)) <= 2, 'a rest inside a scene that is a stop: free, not pulled out', scrollY + ' vs ' + (start + 500));
+
+        // Back up: the progress follows.
+        H.scroll(start + 100);
+        await H.after(60);
+        await H.frame();
+        H.check(Math.abs(prop('--scene-progress') - 0.1) < 0.01 && scene.dataset.sceneStep === '0', 'scrolled back, the progress goes back', prop('--scene-progress'));
+        H.scroll(start + 1400);
+        await H.after(60);
+        await H.frame();
+        H.check(prop('--scene-progress') === 1 && scene.dataset.sceneState === 'after', 'past the scene: progress 1', scene.style.cssText);
+        H.done();
+    })();
+</script>
+</body>
+</html>

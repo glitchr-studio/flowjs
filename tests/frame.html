@@ -1,0 +1,101 @@
+<!doctype html>
+<!--
+  A website in the website (FlowFrame, 1.6): a frame whose links and forms swap their page into the
+  frame alone - the page holding it untouched (its address, its history, Transparent never hearing the
+  click); the frame's own history (back, forward, the address field, the scroll given back); a link it
+  leaves to the browser; a form sent from the frame; the loading class on a slow page's timing.
+-->
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="/tests/site.css"><title>frame</title>
+<style>[data-flow-frame-view] { height: 200px; overflow: auto; border: 1px solid #999; }</style></head>
+<body>
+<div id="page" data-layout="main">
+    <h1 id="host">Host</h1>
+    <div id="frame" data-flow-frame="demo" data-flow-frame-src="/site/page/one">
+        <form data-flow-frame-go><button type="button" id="back" data-flow-frame-back>back</button><button type="button" id="forward" data-flow-frame-forward>forward</button><input id="address" data-flow-frame-address></form>
+        <div id="view" data-flow-frame-view><h1>One</h1><a id="f-two" href="/site/page/two">two</a> <a id="f-slow" href="/site/slow?ms=500">slow</a> <a id="f-blank" href="/site/page/two" target="_blank">blank</a> <a id="f-out" href="https://example.org/">out</a>
+            <form id="f-search" method="get" action="/site/echo"><input name="q" value="miso"><button id="f-go" type="submit">go</button></form></div>
+    </div>
+</div>
+<div id="loader"></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/transparent.js"></script>
+<script src="../src/js/frame.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var $ = function (id) { return document.getElementById(id); };
+        var heard = 0;
+        window.addEventListener('transparent:link', function () { heard++; });
+        await new Promise(function (resolve) { window.addEventListener('load', resolve, { once: true }); });
+        Transparent.ready({ identifier: '#page' });
+        await H.after(50);
+        var frame = FlowFrame.get($('frame'));
+        FlowFrame.attach($('frame'), {}).options.select = '#page';
+        H.check(!!frame && Transparent.frame === FlowFrame, 'the frame is attached by itself, Transparent.frame is the module');
+        H.check($('address').value === '/site/page/one' && $('back').disabled && $('forward').disabled, 'the chrome says the first page; nothing to go back to', $('address').value);
+
+        var start = location.href, length = history.length;
+        var loaded = function () { return new Promise(function (r) { $('frame').addEventListener('flow:frame:load', function (e) { r(e.detail); }, { once: true }); }); };
+        var next = loaded();
+        var click = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+        $('f-two').dispatchEvent(click);
+        var detail = await next;
+        H.check(click.defaultPrevented && $('view').querySelector('h1').textContent === 'Two', 'a link of the frame swaps its page into the frame', $('view').innerHTML.slice(0, 80));
+        H.check(location.href === start && history.length === length && $('host'), 'the page holding the frame is untouched: its address, its history, its content');
+        H.check(heard === 0, 'Transparent never heard the click');
+        H.check(detail.url.endsWith('/site/page/two') && detail.title === 'Two' && $('address').value === '/site/page/two', 'flow:frame:load says the page; the address field too', JSON.stringify({ url: detail.url, title: detail.title }));
+        H.check(!$('back').disabled && $('forward').disabled, 'back can go back now');
+
+        // Back and forward, from memory.
+        $('back').click();
+        H.check($('view').querySelector('h1').textContent === 'One' && $('address').value === '/site/page/one' && !$('forward').disabled, 'back shows the page before, at once');
+        $('forward').click();
+        H.check($('view').querySelector('h1').textContent === 'Two', 'forward shows it again');
+        $('back').click();
+
+        // A link left to the browser: another tab, another site.
+        var blank = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+        var stop = function (e) { e.preventDefault(); };
+        document.addEventListener('click', stop);
+        $('f-blank').dispatchEvent(blank);
+        var out = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+        $('f-out').dispatchEvent(out);
+        document.removeEventListener('click', stop);
+        H.check($('view').querySelector('h1').textContent === 'One', 'a link with a target, or to another site, is not the frame\'s');
+
+        // A form of the frame.
+        next = loaded();
+        $('f-go').click();
+        await next;
+        var echo = $('view').querySelector('#echo');
+        H.check(echo && echo.textContent.indexOf('miso') !== -1 && location.href === start, 'a form of the frame is sent from the frame', echo && echo.textContent);
+
+        // The address field.
+        next = loaded();
+        $('address').value = '/site/page/one';
+        $('address').form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await next;
+        H.check($('view').querySelector('h1').textContent === 'One', 'the address field takes another page');
+
+        // A slow page: .flow-frame-loading after the delay, never on a fast one.
+        var classes = [];
+        var watch = new MutationObserver(function () { classes.push($('frame').classList.contains('flow-frame-loading')); });
+        watch.observe($('frame'), { attributes: true, attributeFilter: ['class'] });
+        next = loaded();
+        $('view').querySelector('#to-slow').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+        await H.after(350);
+        H.check($('frame').classList.contains('flow-frame-loading'), 'a slow page shows the frame loading');
+        await next;
+        await H.after(400);
+        H.check(!$('frame').classList.contains('flow-frame-loading') && $('view').querySelector('#slow'), 'the slow page in, the loading class gone');
+        H.check(location.href === start && history.length === length, 'still, the page holding the frame never moved');
+        watch.disconnect();
+        H.done();
+    })();
+</script>
+</body>
+</html>

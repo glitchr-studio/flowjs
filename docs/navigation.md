@@ -94,7 +94,10 @@ Set with `Transparent.ready({...})` or `Transparent.configure({...})`.
 | `headlock` | `[]` | URL substrings or patterns kept in `<head>` across pages; `data-headlock="true"` / `"false"` on an element overrides |
 | `use_view_transitions` | `false` | wrap the swap in `document.startViewTransition()` where supported |
 | `skip_transition_for_cache` | `false` | cache hits skip the view transition |
-| `progress_bar` | `true` | a native bar while `html.loading` is set; `false` or `'off'` for another indicator |
+| `progress_bar` | `true` | the native bar (below); `false` or `'off'` for another indicator |
+| `progress_bar_delay` | `200` | ms a navigation must last before the bar shows: a faster one shows none (1.6) |
+| `progress_bar_min` | `400` | ms the bar stays once shown (1.6) |
+| `progress_bar_finish` | `250` | ms the finished bar takes to fill and fade (1.6) |
 | `cache_version` | `null` | a value changing at each deploy purges the response cache on mismatch |
 | `nest` | `[]` | path patterns opened as a nested website-in-website panel; the target must send the `X-Transparent-Nest` header |
 | `nest_move`, `nest_resize`, `nest_snap` | `true` | drag the chrome bar, resize by the edges, magnetic snapping |
@@ -149,7 +152,10 @@ The settings object in the order the source declares it, with what the code does
 | `headlock` | array | `[]` | strings (contained in) or RegExp (tested on) the `src` or `href` of a head element, or the text of an inline `<style>`: such elements stay in the head across swaps (see [The head and the scripts](#the-head-and-the-scripts)) |
 | `use_view_transitions` | boolean | `false` | the swap runs inside `document.startViewTransition()` where the browser has it; elsewhere, and if it throws, the swap runs as usual |
 | `skip_transition_for_cache` | boolean | `false` | declared, never read: see the defect below |
-| `progress_bar` | boolean or `"off"` | `true` | `false` or `"off"` takes `progress-bar-native` off `<html>`, which hides the 3 px bar and the progress cursor of `navigation.scss` |
+| `progress_bar` | boolean or `"off"` | `true` | `false` or `"off"` takes `progress-bar-native` off `<html>`, which hides the bar and the progress cursor of `navigation.scss` |
+| `progress_bar_delay` | number (ms) | `200` | a navigation shorter than this shows no bar at all (1.6, see [The progress bar](#the-progress-bar-16)) |
+| `progress_bar_min` | number (ms) | `400` | once shown, the bar stays at least this long (1.6) |
+| `progress_bar_finish` | number (ms) | `250` | the finished bar fills and fades over this (1.6) |
 | `nest_esc_confirm` | string | `"Close this panel? Any unsaved changes may be lost."` | the `confirm()` question before Escape closes the nest |
 | `cache_version` | any or `null` | `null` | compared, as a string, with the one kept in `sessionStorage` at the first `ready()`, at each navigation and each time the tab becomes visible: different, every cached page is dropped. `null`: never checked |
 
@@ -370,9 +376,10 @@ html.loading.active #loader { opacity: 1; }            // the curtain is down wh
 html.exiting #page { transform: translateY(-1rem); opacity: 0; transition: all .12s; }   // with exit_duration: 120
 ```
 
-With `progress_bar` on, `navigation.scss` draws a 3 px bar at the top of the window and a progress
-cursor while `html.progress-bar-native.ready:not(.first).loading`: on every navigation, never on
-the first page load.
+With `progress_bar` on, `navigation.scss` draws a bar at the top of the window and a progress cursor
+while `html.progress-bar-shown` (since 1.6: only for a navigation longer than `progress_bar_delay`,
+at least `progress_bar_min`, then `html.progress-bar-done` while it fills and fades - never on the
+first page load; see [The progress bar](#the-progress-bar-16)).
 
 ## Events
 
@@ -770,3 +777,84 @@ Properties: `Transparent.settings`, `Transparent.state` (the state class names),
 A server can answer a navigation as it answers a browser: the same HTML page, any status. It can
 also answer a form's request with JSON (`Content-Type: application/json`, exactly), for instance
 `{"code": "302", "target": "/thanks"}`.
+
+## The progress bar (1.6)
+
+The bar never blinks. A navigation that completes within `progress_bar_delay`
+(200ms: a page from the cache, a static host a few dozen ms away) shows no bar
+at all; one that takes longer shows it - `html.progress-bar-shown` - for at
+least `progress_bar_min`, then finishes it - `html.progress-bar-done`, the bar
+filled and fading over `progress_bar_finish` - and it goes. Up to 1.5 the bar
+was drawn for as long as `html.loading` was set, a few frames on a cached page:
+a flash at the top of the screen at each click. `transparent:progress` is
+dispatched at each step (`detail.state`: `shown`, `done`, `hidden`), for an
+indicator of a site's own on the same timing (with `progress_bar: false`).
+
+Its look is CSS, custom properties on `:root` (or `html`):
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `--transparent-bar-height` | `3px` | |
+| `--transparent-bar-color` | `#2563eb` | the streak's colour, and the finished bar's |
+| `--transparent-bar-background` | a streak of the colour | any background: a gradient |
+| `--transparent-bar-size` | `50% 100%` | the background's size: how wide the streak is |
+| `--transparent-bar-duration` | `1s` | one sweep |
+| `--transparent-bar-done` | the colour | the finished bar's fill |
+| `--transparent-bar-z` | `100001` | |
+
+A rainbow that runs along the top:
+
+```css
+:root {
+    --transparent-bar-height: 4px;
+    --transparent-bar-background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #5ac8fa, #007aff, #af52de, #ff3b30);
+    --transparent-bar-size: 200% 100%;
+    --transparent-bar-duration: 1.4s;
+    --transparent-bar-done: linear-gradient(90deg, #ff3b30, #ffcc00, #34c759, #007aff, #af52de);
+}
+```
+
+## A website in the website: FlowFrame (1.6)
+
+`src/js/frame.js` (global `FlowFrame`, also `Transparent.frame`; part of the
+navigation entry, no jQuery): a frame of the page whose links and forms load
+their page in the background and swap it into the frame alone - the visitor's
+page, its address and its history stay as they are.
+
+```html
+<div data-flow-frame="tour" data-flow-frame-src="/tour/start">
+    <form data-flow-frame-go>
+        <button type="button" data-flow-frame-back aria-label="Back">←</button>
+        <button type="button" data-flow-frame-forward aria-label="Forward">→</button>
+        <input data-flow-frame-address aria-label="Address">
+    </form>
+    <div data-flow-frame-view>…the first page's block…</div>
+</div>
+```
+
+- A link of the view (same origin, no `target`, no `download`, no modifier
+  key, no `data-flow-frame-ignore`) or a form is fetched; the block of the
+  answer the `select` option names (`[data-flow-frame-page]`, the whole body
+  without one) is swapped into the view, whose scroll goes back to the top.
+  Transparent, whose listener is the document's, never hears the click.
+- The frame keeps its own history: `[data-flow-frame-back]` and
+  `[data-flow-frame-forward]` go through the pages it showed, given back from
+  memory where their scroll was left; `[data-flow-frame-address]` says the
+  frame's page and, in a `[data-flow-frame-go]` form, takes another (same
+  origin only); `[data-flow-frame-reload]` fetches it again.
+- **The browser's Back is not the frame's**: the window's history is not
+  touched, so Back leaves the page that holds the frame, as it would leave any
+  page - the frame is a part of the page, not a tab of its own.
+- A page shown in a frame runs no script and its head is not read (the host
+  page's styles apply): a frame shows pages written for it, or the site's own.
+- `flow:frame:load` (it bubbles; `{url, title, frame}`) after each page - the
+  moment to set up what it holds; `flow:frame:error` (`{url, status}`) when no
+  page came. While a page takes longer than `delay` (200ms) the frame carries
+  `.flow-frame-loading`, at least `min` (300ms): the progress bar's timing.
+- Frames are found by themselves (`[data-flow-frame]`, at load and after each
+  navigation); `FlowFrame.attach(element, {select, delay, min, headers})` for
+  options, `FlowFrame.get(element)` for its frame (`go(url)`, `back()`,
+  `forward()`, `reload()`).
+
+Unlike `nest` (an iframe panel opened over the site), a frame is in the page,
+inline, and needs nothing of the server: a static site has them too.

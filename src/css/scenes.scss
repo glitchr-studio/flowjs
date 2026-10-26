@@ -1,0 +1,23 @@
+/* StickyScenes (src/js/scenes.js): a scene is its stage's height plus its
+   length, which scenes.js sets as --scene-length; the stage stays on the
+   screen across it. --scene-top pins it lower (under a fixed header). With
+   prefers-reduced-motion (data-scene-reduced) the scene is its stage alone,
+   at its end. */
+.sticky-scene {
+	position: relative;
+	height: calc(var(--scene-stage-height, 100vh) + var(--scene-length, 100vh));
+}
+@supports (height: 100svh) {
+	.sticky-scene { height: calc(var(--scene-stage-height, 100svh) + var(--scene-length, 100svh)); }
+}
+.sticky-scene-stage {
+	position: sticky;
+	top: var(--scene-top, 0px);
+	height: var(--scene-stage-height, 100vh);
+	overflow: hidden;
+}
+@supports (height: 100svh) {
+	.sticky-scene-stage { height: var(--scene-stage-height, 100svh); }
+}
+.sticky-scene[data-scene-reduced] { height: auto; }
+.sticky-scene[data-scene-reduced] .sticky-scene-stage { position: relative; top: 0; }

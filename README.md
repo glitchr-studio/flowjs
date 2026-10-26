@@ -8,14 +8,15 @@ core. The modules are independent of each other: import what a page needs.
 | Module | Global | Entry | What it does | Needs |
 | --- | --- | --- | --- | --- |
 | core | `Flow` | loaded by every entry | units and durations, scrollers, one scroll/resize/interrupt listener per scroller, one animation frame for the measurements, programmatic scroll, the address hash, page-loaded moments, the jQuery plugins | nothing |
-| navigation | `Transparent` | `navigation` | links and forms load in the background and swap the page in place; history, scroll positions, head and scripts kept in step; nested panels, prefetch, form memory, lazy loading | jQuery |
+| navigation | `Transparent`, `FlowFrame` | `navigation` | links and forms load in the background and swap the page in place; history, scroll positions, head and scripts kept in step; a progress bar that never blinks; a website in the website (a frame that navigates on its own); nested panels, prefetch, form memory, lazy loading | jQuery (FlowFrame: nothing) |
 | sticky | `Sticky` | `sticky` | scroll effects: hiding header, bottom bar, widgets, fading blocks, the address following the headline read, magnets, scroll-percent triggers, swipes, autoscroll | jQuery |
 | stops | `StickyStops` | `stops` | places on the page that a scroll settles on once it comes to rest, with keys and sideways rows | nothing |
+| scenes | `StickyScenes` | `scenes` | sections the scroll drives while their stage stays pinned: a progress 0 to 1 in CSS and in an event, steps, an image sequence | nothing |
 | sortable | `StickySortable` | `sortable` | drag-and-drop reordering with pointer events | nothing (jQuery only for the `$.fn.stickySortable` plugin) |
 | ajaxer | `Ajaxer` | `ajaxer` | named AJAX channels over `$.ajax`: throttle, debounce, loader, retry, request limit | jQuery |
 | cookie | `Cookie` | `cookie` | what a site stores in the browser and the visitor's consent to it: categories the site declares, the cookies and storage entries under each, features started at a grant and stopped at a withdrawal, a banner and a detailed section in the site's words | nothing |
 
-Per module: [the core](docs/core.md), [navigation](docs/navigation.md), [sticky and stops](docs/sticky.md),
+Per module: [the core](docs/core.md), [navigation](docs/navigation.md), [sticky and stops](docs/sticky.md), [scenes](docs/scenes.md),
 [sortable](docs/sortable.md), [ajaxer](docs/ajaxer.md), [cookie](docs/cookie.md); and
 [testing](docs/testing.md). Each page holds the module's complete options table, its classes and
 data attributes, its events and its methods; [docs/index.md](docs/index.md) is the manual's home.
@@ -37,9 +38,10 @@ import '@glitchr/flowjs';
 One module (its stylesheet when it has one, and the core):
 
 ```js
-import '@glitchr/flowjs/navigation';   // Transparent
+import '@glitchr/flowjs/navigation';   // Transparent, FlowFrame
 import '@glitchr/flowjs/sticky';       // Sticky
 import '@glitchr/flowjs/stops';        // StickyStops
+import '@glitchr/flowjs/scenes';       // StickyScenes
 import '@glitchr/flowjs/sortable';     // StickySortable
 import '@glitchr/flowjs/ajaxer';       // Ajaxer
 import '@glitchr/flowjs/cookie';       // Cookie
@@ -54,8 +56,8 @@ Without a bundler, the files of `src/js/` in a page, `core.js` first:
 ```
 
 Each module sets its global (`window.Transparent`, ...) and registers itself on
-the core (`Flow.navigation`, `Flow.sticky`, `Flow.stops`, `Flow.sortable`,
-`Flow.ajaxer`, `Flow.cookie`). The stylesheets are `src/css/navigation.scss`,
+the core (`Flow.navigation`, `Flow.frame`, `Flow.sticky`, `Flow.stops`, `Flow.scenes`,
+`Flow.sortable`, `Flow.ajaxer`, `Flow.cookie`). The stylesheets are `src/css/navigation.scss`,
 `sticky.scss`, `ajaxer.scss`, and `index.scss` for all of them; `cookie.scss`,
 a minimal look for the cookie banner, is imported by no entry - a site asks for
 it (`@glitchr/flowjs/src/css/cookie.scss`) or styles its banner itself.
@@ -70,7 +72,8 @@ commented where its settings object starts (`src/js/<module>.js`).
 `identifier` (`"#page"`, the block swapped), `loader` (`"#loader"`), `throttle`
 (`1000`), `prefetch` (`true`; only links with `rel="prefetch"`),
 `prefetch_delay` (`65`), `prefetch_ttl` (`30000`), `prefetch_max` (`15`),
-`exit_duration` (`0`), `exceptions` (`[]`, paths left to the browser), `nest`
+`exit_duration` (`0`), `progress_bar_delay` (`200`), `progress_bar_min` (`400`),
+`progress_bar_finish` (`250`), `exceptions` (`[]`, paths left to the browser), `nest`
 (`[]`, path patterns opened as a nested panel), `headlock` (`[]`),
 `use_view_transitions` (`false`), `progress_bar` (`true`), `cache_version`
 (`null`), `lazyload` (`true`), `smoothscroll_duration` (`"200ms"`),
@@ -96,6 +99,17 @@ scroll, `scrollsnap_keys` `false`: the arrows go from magnet to magnet),
 `up`/`down` (`true`: a scroll heading that way is taken to a stop), `progress` (`true`), `smooth` (`true`), `axis` (`"y"`), `keys` (`false`), `ends`
 (`false`: with `keys`, an arrow rests at a tall stop's end before going on), `screens`
 (`false`: with `keys`, arrows and page keys read a tall stop a whole screen at a time, top to end, then on), `shortEnd` (`0.25`: a stop at most this share of a screen taller than the screen rests at its top only, never at its end), `end` (`false`). Full description in [docs/sticky.md](docs/sticky.md).
+
+**StickyScenes** - found by themselves (`.sticky-scene`), or
+`StickyScenes.attach(section, {...})`; defaults in `StickyScenes.defaults`: `length`
+(`"100vh"`, or `data-scene-length`), `steps` (`[]`, or `data-scene-steps`), `reduced` (`"end"`:
+prefers-reduced-motion shows the end), `tail` (400ms). The progress in `--scene-progress`, the
+`scene:progress` event, an image sequence on a canvas. See [docs/scenes.md](docs/scenes.md).
+
+**FlowFrame** - found by themselves (`[data-flow-frame]`), or `FlowFrame.attach(element,
+{...})`; defaults in `FlowFrame.defaults`: `select` (`"[data-flow-frame-page]"`), `delay` (200),
+`min` (300), `headers`. Its own history, the window's untouched. See
+[docs/navigation.md](docs/navigation.md#a-website-in-the-website-flowframe-16).
 
 **StickySortable** - `new StickySortable(container, {...})` or
 `$(container).stickySortable({...})`; defaults in `StickySortable.defaults`:
