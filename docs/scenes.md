@@ -1,3 +1,8 @@
+---
+title: Scroll-driven scenes
+order: 35
+---
+
 # Scroll-driven scenes
 
 `src/js/scenes.js` (global `StickyScenes`, entry `@glitchr/flowjs/scenes`, no jQuery) and its
