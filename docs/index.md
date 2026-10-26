@@ -27,9 +27,10 @@ server HTML); a page that needs none of the modules - the core alone does nothin
 | Module | Global | Entry | What it does | Needs | Manual |
 | --- | --- | --- | --- | --- | --- |
 | core | `Flow` | loaded by every entry | units and durations, scrollers, one scroll/resize/interrupt listener per scroller, one animation frame for the measurements, programmatic scroll, the address hash, page-loaded moments, the jQuery plugins | nothing | [Flow (core)](core.md) |
-| navigation | `Transparent` | `navigation` | links and forms load in the background and swap the page in place; history, scroll positions, head and scripts kept in step; nested panels, prefetch, form memory, lazy loading | jQuery | [Transparent](navigation.md) |
+| navigation | `Transparent`, `FlowFrame` | `navigation` | links and forms load in the background and swap the page in place; history, scroll positions, head and scripts kept in step; a progress bar that never blinks; a website in the website (1.6); nested panels, prefetch, form memory, lazy loading | jQuery (FlowFrame: nothing) | [Transparent](navigation.md) |
 | sticky | `Sticky` | `sticky` | scroll effects: hiding header, bottom bar, widgets, fading blocks, the address following the headline read, magnets, scroll-percent triggers, swipes, autoscroll | jQuery | [Sticky and stops](sticky.md) |
 | stops | `StickyStops` | `stops` | places on the page that a scroll settles on once it comes to rest, with keys and sideways rows | nothing | [Scroll stops](sticky.md#scroll-stops) |
+| scenes | `StickyScenes` | `scenes` | sections the scroll drives while their stage stays pinned: a progress 0 to 1 in CSS and in an event, steps, an image sequence (1.6) | nothing | [Scroll-driven scenes](scenes.md) |
 | sortable | `StickySortable` | `sortable` | drag-and-drop reordering with pointer events | nothing (jQuery only for the `$.fn.stickySortable` plugin) | [StickySortable](sortable.md) |
 | ajaxer | `Ajaxer` | `ajaxer` | named AJAX channels over `$.ajax`: throttle, debounce, loader, retry, request limit | jQuery | [Ajaxer](ajaxer.md) |
 | cookie | `Cookie` | `cookie` | what a site stores in the browser and the visitor's consent to it: categories, the cookies and storage entries under each, features started at a grant and stopped at a withdrawal, a banner and a detailed section in the site's words | nothing | [Cookie](cookie.md) |
@@ -101,6 +102,7 @@ CommonJS). The stylesheets are Sass: compile `src/css/*.scss` to CSS for such a 
   form memory, lazy loading and nested panels.
 - [Sticky and stops](sticky.md): the scroll effects (options, classes, events, methods), then the
   scroll stops.
+- [Scroll-driven scenes](scenes.md): a pinned stage the scroll plays (1.6).
 - [StickySortable](sortable.md), [Ajaxer](ajaxer.md), [Cookie](cookie.md): one page each, with its
   options table, attributes, events and methods.
 - [Testing](testing.md): the test pages, how to run them, what each covers.
