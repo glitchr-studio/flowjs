@@ -1,0 +1,215 @@
+<!doctype html>
+<!--
+  StickySortable.Tree: nested lists reordered and re-parented. Dragged with the pointer, an item
+  goes between two items at the level its horizontal place asks for (a child of the item above,
+  or out to its parent's level), within maxDepth and the items that accept children; a marker
+  shows where. The keyboard on a handle: up/down among siblings, right into the item above, left
+  out of the parent, each move announced in an aria-live region. A toggle folds and unfolds an
+  item's children; serialize() gives nested ids; "sortable:change" carries parent and index. On
+  a touch screen the drag begins after a long press only. Opened by tests/run.mjs; the verdict is
+  written in #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>sortable tree</title>
+<style>
+    body { margin: 0; font: 14px sans-serif; }
+    ol { list-style: none; margin: 0; padding: 0 0 0 24px; }
+    #tree { width: 400px; padding: 0; }
+    .row { height: 30px; display: flex; align-items: center; }
+    .grip { width: 20px; height: 20px; touch-action: none; }
+    .is-tree-marker { height: 0; position: relative; }
+    .is-tree-marker::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 2px; background: #333; }
+    #result { position: fixed; top: 0; right: 0; margin: 0; }
+</style>
+</head>
+<body>
+<ol id="tree">
+    <li data-sortable-item data-id="c1"><div class="row"><button class="grip" aria-label="Move">::</button> <button data-sortable-toggle>v</button> Chapter one</div>
+        <ol>
+            <li data-sortable-item data-id="s1"><div class="row"><button class="grip">::</button> Section A</div></li>
+            <li data-sortable-item data-id="s2"><div class="row"><button class="grip">::</button> Section B</div></li>
+        </ol>
+    </li>
+    <li data-sortable-item data-id="c2"><div class="row"><button class="grip">::</button> <button data-sortable-toggle>v</button> Chapter two</div></li>
+    <li data-sortable-item data-id="c3" data-sortable-leaf><div class="row"><button class="grip">::</button> Appendix</div></li>
+</ol>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/sortable.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var root = document.getElementById('tree');
+        var events = [];
+        root.addEventListener('sortable:change', function (e) { events.push(e.detail); });
+        var tree = new StickySortable.Tree(root, { handle: '.grip', maxDepth: 2, indent: 24 });
+        var flat = function () { return JSON.stringify(tree.serialize()).replace(/"children":\[\]/g, '').replace(/"id":/g, '').replace(/[",{}]+(?=[\]\[])/g, '').replace(/"/g, ''); };
+        var $ = function (id) { return root.querySelector('[data-id="' + id + '"]'); };
+        var grip = function (id) { return $(id).querySelector('.grip'); };
+        var key = function (id, k) { grip(id).focus(); grip(id).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true })); };
+        var live = document.querySelector('.sortable-live');
+
+        H.check(JSON.stringify(tree.serialize()) === JSON.stringify([{ id: 'c1', children: [{ id: 's1', children: [] }, { id: 's2', children: [] }] }, { id: 'c2', children: [] }, { id: 'c3', children: [] }]), 'serialize gives the tree as nested ids', JSON.stringify(tree.serialize()));
+        H.check(live && live.getAttribute('aria-live') === 'polite', 'an aria-live region is added beside the tree');
+        H.check(tree.label($('c1')) === 'Chapter one', 'an item is named by its own text, not its handle, toggle or children', tree.label($('c1')));
+        var toggle2 = $('c2').querySelector('[data-sortable-toggle]');
+        H.check(toggle2.hidden && !$('c1').querySelector('[data-sortable-toggle]').hidden, 'a toggle shows only on an item with children');
+
+        // The keyboard.
+        key('s2', 'ArrowUp');
+        H.check(tree.serialize()[0].children.map(function (n) { return n.id; }).join() === 's2,s1', 'ArrowUp moves an item above its sibling');
+        H.check(/Section B moved: position 1 of 2, level 2/.test(live.textContent), 'the move is announced', live.textContent);
+        H.check(events.length === 1 && events[0].item === $('s2') && events[0].parent === $('c1') && events[0].index === 0 && events[0].depth === 1, 'sortable:change carries the item, its parent, index and depth', JSON.stringify({ n: events.length, i: events[0] && events[0].index, d: events[0] && events[0].depth }));
+        H.check(document.activeElement === grip('s2'), 'the handle keeps the focus');
+        key('s2', 'ArrowUp');
+        H.check(/cannot move/.test(live.textContent) && events.length === 1, 'the first sibling going up: refused, said, no change');
+        key('s2', 'ArrowLeft');
+        H.check(tree.serialize().map(function (n) { return n.id; }).join() === 'c1,s2,c2,c3' && $('s2').parentElement === root, 'ArrowLeft takes the item out, just after its parent');
+        H.check(/Section B moved out of Chapter one/.test(live.textContent), 'and says so', live.textContent);
+        key('c2', 'ArrowRight');
+        H.check($('c2').parentElement.parentElement === $('s2'), 'ArrowRight makes the item the last child of the one above', flat() + ' ' + live.textContent);
+        key('c2', 'ArrowLeft');
+        key('c3', 'ArrowRight');
+        H.check($('c3').parentElement.parentElement === $('c2'), 'an item goes into the one above (Appendix into Chapter two)');
+        key('c3', 'ArrowLeft');
+        key('c2', 'ArrowDown');
+        key('c2', 'ArrowRight');
+        H.check($('c2').parentElement === root && /cannot move/.test(live.textContent), 'a leaf (data-sortable-leaf) accepts no child');
+        key('c2', 'ArrowUp');
+        // c1 > s1, then s2, c2, c3 at the top level.
+        key('s2', 'ArrowUp');
+        H.check(tree.serialize().map(function (n) { return n.id; }).join() === 's2,c1,c2,c3', 'ArrowUp at the top level', flat());
+        key('s2', 'ArrowDown');
+        key('s2', 'ArrowRight');                                     // s2 into c1, after s1
+        key('s2', 'ArrowRight');                                     // s2 into s1 (depth 2)
+        H.check($('s2').parentElement.parentElement === $('s1') && tree.depthOf($('s2')) === 2, 'two levels down: depth 2 (maxDepth)');
+        key('c2', 'ArrowRight');                                     // c2 into c1 (depth 1): c1 holds s1>s2, c2
+        H.check($('c2').parentElement.parentElement === $('c1'), 'a chapter into another');
+        key('c2', 'ArrowUp');                                        // above s1 within c1
+        key('s1', 'ArrowRight');                                     // s1 (holding s2) into c2: s2 would be at depth 3
+        H.check($('s1').parentElement.parentElement === $('c1') && /cannot move/.test(live.textContent), 'maxDepth counts the subtree: an item with children cannot go where they would be too deep', flat());
+        // A fresh tree for the pointer.
+        tree.destroy();
+        root.innerHTML = '<li data-sortable-item data-id="c1"><div class="row"><button class="grip">::</button> <button data-sortable-toggle>v</button> Chapter one</div><ol><li data-sortable-item data-id="s1"><div class="row"><button class="grip">::</button> Section A</div></li><li data-sortable-item data-id="s2"><div class="row"><button class="grip">::</button> Section B</div></li></ol></li>'
+            + '<li data-sortable-item data-id="c2"><div class="row"><button class="grip">::</button> <button data-sortable-toggle>v</button> Chapter two</div></li>'
+            + '<li data-sortable-item data-id="c3" data-sortable-leaf><div class="row"><button class="grip">::</button> Appendix</div></li>';
+        events = [];
+        tree = new StickySortable.Tree(root, { handle: '.grip', maxDepth: 2, indent: 24 });
+        live = document.querySelector('.sortable-live');
+        H.check(document.querySelectorAll('.sortable-live').length === 1, 'destroy removes the live region');
+
+        // Folding.
+        var toggle1 = $('c1').querySelector('[data-sortable-toggle]');
+        toggle1.click();
+        H.check($('c1').classList.contains('is-collapsed') && $('c1').querySelector('ol').hidden && toggle1.getAttribute('aria-expanded') === 'false', 'the toggle folds the children (aria-expanded false)');
+        H.check(toggle1.getAttribute('aria-controls') === $('c1').querySelector('ol').id, 'and names the list it controls');
+        toggle1.click();
+        H.check(!$('c1').querySelector('ol').hidden && toggle1.getAttribute('aria-expanded') === 'true', 'and unfolds them');
+
+        // The pointer.
+        function pointer(type, target, x, y, kind) {
+            target.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: kind || 'mouse', button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+        }
+        var row = function (id) { return $(id).querySelector('.row').getBoundingClientRect(); };
+        // c3 dragged up between s1 and s2, same horizontal place: depth 0 asked, but s2 below is at 1 → depth 1 (inside c1).
+        var g = grip('c3').getBoundingClientRect(), x = g.left + 5, y = g.top + 5;
+        pointer('pointerdown', grip('c3'), x, y);
+        pointer('pointermove', document, x, y - 10);
+        H.check($('c3').classList.contains('is-dragging'), 'past the threshold the item is dragged');
+        var between = row('s2').top + 2;
+        pointer('pointermove', document, x, between);
+        var marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.nextElementSibling === $('s2') && marker.getAttribute('data-depth') === '1', 'between two sections the marker is at their level, whatever the pointer asks (nothing deeper than below it allows)', marker && (marker.getAttribute('data-depth') + ' before ' + (marker.nextElementSibling && marker.nextElementSibling.getAttribute('data-id'))));
+        pointer('pointerup', document, x, between);
+        H.check($('c3').parentElement.parentElement === $('c1') && tree.serialize()[0].children.map(function (n) { return n.id; }).join() === 's1,c3,s2', 'dropped there, it is a section of chapter one', flat());
+        H.check(events.length === 1 && events[0].parent === $('c1') && events[0].index === 1, 'one change, with parent and index');
+        H.check(!root.querySelector('.is-tree-marker') && !$('c3').style.transform, 'the marker is gone, the item\'s style cleared');
+
+        // c3 dragged below the last section and to the left: out to the top level, after c1.
+        g = grip('c3').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        pointer('pointerdown', grip('c3'), x, y);
+        pointer('pointermove', document, x, y + 10);
+        var below = row('c2').top + 2;                                // between s2 (depth 1) and c2 (depth 0)
+        pointer('pointermove', document, x, below);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.getAttribute('data-depth') === '1', 'below the last section at the same place: still a section', marker && marker.getAttribute('data-depth'));
+        pointer('pointermove', document, x - 30, below);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.getAttribute('data-depth') === '0' && marker.nextElementSibling === $('c2'), 'moved one indent to the left: the top level, before chapter two', marker && marker.getAttribute('data-depth'));
+        pointer('pointerup', document, x - 30, below);
+        H.check(tree.serialize().map(function (n) { return n.id; }).join() === 'c1,c3,c2', 'dropped: a chapter again, between the two', flat());
+
+        // c2 dragged to the right under c3 (a leaf): refused depth, stays at the top level.
+        g = grip('c2').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        pointer('pointerdown', grip('c2'), x, y);
+        pointer('pointermove', document, x + 60, y + 6);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.getAttribute('data-depth') === '0', 'under a leaf, the marker never goes inside it', marker && marker.getAttribute('data-depth'));
+        pointer('pointerup', document, x + 60, y + 6);
+        H.check(tree.serialize().map(function (n) { return n.id; }).join() === 'c1,c3,c2', 'dropped in place: the same order', flat());
+
+        // s1, first section of chapter one, dragged below section B and to the right: a child of B (depth 2).
+        g = grip('s1').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        var under = row('c3').top + 2;                                // between s2 (depth 1) and c3 (depth 0)
+        pointer('pointerdown', grip('s1'), x, y);
+        pointer('pointermove', document, x, y + 10);
+        pointer('pointermove', document, x + 26, under);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.getAttribute('data-depth') === '2', 'one indent to the right below a section: its child', marker && marker.getAttribute('data-depth'));
+        pointer('pointermove', document, x + 80, under);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.getAttribute('data-depth') === '2', 'never deeper than maxDepth', marker && marker.getAttribute('data-depth'));
+        pointer('pointerup', document, x + 80, under);
+        H.check($('s1').parentElement.parentElement === $('s2'), 'dropped: a child of section B', flat());
+
+        // A drag cancelled (pointercancel): nothing moves.
+        var before = flat();
+        g = grip('c2').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        pointer('pointerdown', grip('c2'), x, y);
+        pointer('pointermove', document, x, y - 40);
+        pointer('pointercancel', document, x, y - 40);
+        H.check(flat() === before && !root.querySelector('.is-tree-marker'), 'a cancelled drag changes nothing');
+
+        // Touch: a finger that moves at once scrolls, no drag; held for the long press, it drags.
+        g = grip('c2').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        pointer('pointerdown', grip('c2'), x, y, 'touch');
+        pointer('pointermove', document, x, y - 20, 'touch');
+        H.check(!$('c2').classList.contains('is-dragging'), 'a finger moving before the long press does not drag');
+        pointer('pointerup', document, x, y - 20, 'touch');
+        pointer('pointerdown', grip('c2'), x, y, 'touch');
+        await H.after(420);
+        H.check($('c2').classList.contains('is-held'), 'held, the item says it is picked up');
+        pointer('pointermove', document, x, row('c1').top + 2, 'touch');
+        H.check($('c2').classList.contains('is-dragging'), 'after the long press the finger drags');
+        pointer('pointerup', document, x, row('c1').top + 2, 'touch');
+        H.check(tree.serialize()[0].id === 'c2', 'and drops: chapter two first', flat());
+
+        // A folded item's children are not drop places, and the item may not take a child while folded.
+        $('c1').querySelector('[data-sortable-toggle]').click();
+        events = [];
+        g = grip('c3').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        pointer('pointerdown', grip('c3'), x, y);
+        pointer('pointermove', document, x, y - 10);
+        pointer('pointermove', document, x + 40, row('c3').top + 2);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(!marker || marker.getAttribute('data-depth') === '0', 'under a folded chapter: no place inside it', marker && marker.getAttribute('data-depth'));
+        pointer('pointerup', document, x + 40, row('c3').top + 2);
+
+        // Aimed into an item without children, a list opens for the marker; aimed elsewhere, it closes again.
+        g = grip('c3').getBoundingClientRect(); x = g.left + 5; y = g.top + 5;
+        pointer('pointerdown', grip('c3'), x, y);
+        pointer('pointermove', document, x, y - 10);
+        pointer('pointermove', document, x + 26, row('c1').top + 2);
+        marker = root.querySelector('.is-tree-marker');
+        H.check(marker && marker.getAttribute('data-depth') === '1' && marker.parentElement.parentElement === $('c2'), 'one indent right below an item without children: inside it', marker && marker.getAttribute('data-depth'));
+        pointer('pointermove', document, x, row('c1').top + 2);
+        H.check(!$('c2').querySelector('ol'), 'aimed back at the top level, the list opened for it is gone');
+        pointer('pointercancel', document, x, row('c1').top + 2);
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

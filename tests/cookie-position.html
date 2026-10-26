@@ -1,0 +1,101 @@
+<!doctype html>
+<!--
+  Cookie (1.6): where the banner floats. No position given: no data-cookie-position (the stylesheet's
+  corner, as before 1.6); the banner's own attribute as written is kept; the `position` option, or
+  Cookie.defaults.position, names one; `gutter` sets --cookie-gap; `follow` names a cookie button,
+  and while it floats (position: fixed) the banner opens next to it - its corner, beside it - and goes
+  back to its position when the button is in the flow again. A site with another prefix (omnibase/
+  consent's data-consent) gets its position in its own attribute, as before. Opened by tests/run.mjs.
+-->
+<html>
+<head><meta charset="utf-8"><title>cookie position</title>
+<style>
+    body { margin: 0; }
+    #button { width: 40px; height: 40px; }
+    #button.is-fixed { position: fixed; left: 20px; bottom: 30px; }
+    #button.is-top-right { position: fixed; right: 24px; top: 10px; left: auto; bottom: auto; }
+</style></head>
+<body>
+<button type="button" id="button">cookie</button>
+<div data-cookie-banner data-cookie-position="top-left" id="written" hidden><div data-cookie-summary><button data-cookie-accept>ok</button></div></div>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/cookie.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var banner = document.getElementById('written');
+        var button = document.getElementById('button');
+        localStorage.clear();
+        var categories = { necessary: { label: 'Needed', required: true }, demo: { label: 'Demo' } };
+        H.check(Cookie.defaults.position === null && Cookie.defaults.gutter === null && Cookie.defaults.follow === null, 'by default: no position, no gutter, nothing followed - no site changes');
+
+        Cookie.ready({ autoOpen: false, record: { store: 'local', name: 'pos' }, categories: categories });
+        Cookie.open('banner');
+        H.check(Cookie.banner() === banner && banner.getAttribute('data-cookie-position') === 'top-left', 'the banner\'s own data-cookie-position, as written, is its position');
+        Cookie.close();
+
+        Cookie.ready({ position: 'bottom-center', gutter: 24 });
+        Cookie.open('banner');
+        H.check(banner.getAttribute('data-cookie-position') === 'bottom-center' && banner.style.getPropertyValue('--cookie-gap') === '24px', 'the position option names one; the gutter is --cookie-gap', banner.getAttribute('style'));
+        Cookie.ready({ gutter: '2rem' });
+        H.check(banner.style.getPropertyValue('--cookie-gap') === '2rem', 'a gutter may be a length');
+        Cookie.close();
+
+        // Follow the cookie button while it floats.
+        Cookie.ready({ follow: '#button' });
+        Cookie.open('banner');
+        H.check(!banner.hasAttribute('data-cookie-following') && banner.getAttribute('data-cookie-position') === 'bottom-center', 'a button in the flow is not followed: the position stands');
+        Cookie.close();
+        button.className = 'is-fixed';
+        Cookie.open('banner');
+        var r = button.getBoundingClientRect();
+        H.check(banner.hasAttribute('data-cookie-following') && banner.getAttribute('data-cookie-position') === 'bottom-left', 'a floating button in the bottom left corner: the banner opens there', banner.getAttribute('data-cookie-position'));
+        H.check(banner.style.getPropertyValue('--cookie-follow-block') === Math.round(innerHeight - r.top + 8) + 'px' && banner.style.getPropertyValue('--cookie-follow-inline') === '20px', 'just above the button, aligned with it', banner.getAttribute('style'));
+        Cookie.close();
+        button.className = 'is-top-right';
+        Cookie.open('banner');
+        r = button.getBoundingClientRect();
+        H.check(banner.getAttribute('data-cookie-position') === 'top-right' && banner.style.getPropertyValue('--cookie-follow-block') === Math.round(r.bottom + 8) + 'px' && banner.style.getPropertyValue('--cookie-follow-inline') === '24px', 'moved to the top right: the banner under it', banner.getAttribute('style'));
+        Cookie.close();
+        // Fixed through a parent (a corner widget around the button): it floats all the same.
+        button.className = '';
+        var widget = document.createElement('div');
+        widget.style.cssText = 'position: fixed; right: 30px; bottom: 12px';
+        document.body.appendChild(widget);
+        widget.appendChild(button);
+        Cookie.open('banner');
+        H.check(banner.hasAttribute('data-cookie-following') && banner.getAttribute('data-cookie-position') === 'bottom-right' && banner.style.getPropertyValue('--cookie-follow-inline') === '30px', 'a button inside a fixed corner widget floats with it', banner.getAttribute('style'));
+        Cookie.close();
+        document.body.insertBefore(button, document.body.firstChild);
+        widget.remove();
+        Cookie.open('banner');
+        H.check(!banner.hasAttribute('data-cookie-following') && banner.getAttribute('data-cookie-position') === 'bottom-center' && !banner.style.getPropertyValue('--cookie-follow-block'), 'back in the flow: its position again');
+        Cookie.close();
+
+        // Cookie.defaults.position, a global setting; the written one when no option names any.
+        Cookie.destroy();
+        localStorage.clear();
+        Cookie.defaults.position = 'top-center';
+        Cookie.ready({ autoOpen: false, record: { store: 'local', name: 'pos' }, categories: categories });
+        Cookie.open('banner');
+        H.check(banner.getAttribute('data-cookie-position') === 'top-center', 'Cookie.defaults.position: every banner\'s, unless an option says otherwise');
+        Cookie.destroy();
+        Cookie.defaults.position = null;
+
+        // Another prefix: the position in its own attribute, as omnibase/consent reads it.
+        localStorage.clear();
+        var panel = document.createElement('div');
+        panel.setAttribute('data-consent-banner', '');
+        panel.hidden = true;
+        panel.innerHTML = '<div data-consent-summary><button data-consent-accept>ok</button></div>';
+        document.body.appendChild(panel);
+        Cookie.ready({ prefix: 'data-consent', autoOpen: false, position: 'bottom-left', record: { store: 'local', name: 'pos2' }, categories: categories });
+        Cookie.open('banner');
+        H.check(Cookie.banner() === panel && panel.getAttribute('data-consent-position') === 'bottom-left' && !panel.hasAttribute('data-consent-following'), 'with data-consent: data-consent-position as before, nothing else', panel.outerHTML.slice(0, 160));
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

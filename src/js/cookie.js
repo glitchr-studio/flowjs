@@ -30,6 +30,25 @@
 // What it shares with the other modules is the core's: the moments a page is
 // in - the navigation's swaps included -, the durations, the frame, jQuery
 // when it is there (none is needed).
+/**
+ * @file Cookie, the cookies and the visitor's consent: categories, what each stores, features started at a grant and stopped at a withdrawal, the banner and its detailed section, in the site's own words.
+ */
+/**
+ * Told on the window once Cookie.ready() has configured and started the module.
+ * @event Cookie#cookie:ready
+ */
+/**
+ * Told on the window at each answer: detail {categories, granted, revoked, source, pending}.
+ * @event Cookie#cookie:consent
+ */
+/**
+ * Told on the window when the banner opens: detail {view} - "banner" or "details".
+ * @event Cookie#cookie:open
+ */
+/**
+ * Told on the window when the banner closes: detail {view}.
+ * @event Cookie#cookie:close
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);
@@ -72,7 +91,9 @@
         signals: { gpc: false, dnt: false },
         autoOpen: true,
         reopen: 'details',
-        position: null,
+        position: null,        // where the banner floats: bottom-right (the stylesheet's own, null), bottom-left, bottom-center, top-left, top-center, top-right, center
+        gutter: null,          // its distance to the screen's edges (px, or a length): --cookie-gap; null, the stylesheet's (1rem)
+        follow: null,          // the cookie button it opens next to while that button floats (position: fixed): an element, a selector, a function
         container: null,
         template: null,
         root: null,
@@ -940,6 +961,58 @@
         if (wanted && wanted.isConnected && wanted !== ui.root) move(wanted, true);
     }
 
+    // The position each banner was written with (data-cookie-position in the site's HTML): the
+    // position when no option names one, and what comes back once the button it followed is gone.
+    var written = typeof WeakMap === 'function' ? new WeakMap() : null;
+    var placing = false;
+
+    /**
+     * Where the banner floats. The `position` option, else the banner's own data-cookie-position as
+     * written, else none (the stylesheet's corner, bottom right); the `gutter` as --cookie-gap. While
+     * the button named by `follow` floats (position: fixed, itself or a parent), the banner opens next to it instead: the
+     * corner the button is in (left, center or right by a third of the width; top or bottom by half the
+     * height) in data-cookie-position, data-cookie-following set, and the distances that put it beside
+     * the button in --cookie-follow-block (from the top or bottom edge, past the button) and
+     * --cookie-follow-inline (from the left or right edge, aligned with it).
+     */
+    /** Whether an element floats over the page: fixed itself, or inside a fixed element (a corner widget around the button). */
+    function floats(el) {
+        for (; el && el.nodeType === 1; el = el.parentElement) if (window.getComputedStyle(el).position === 'fixed') return true;
+        return false;
+    }
+
+    function situate() {
+        var rootEl = ui.root;
+        if (!rootEl) return;
+        var attr = hook('position');
+        if (written && !written.has(rootEl)) written.set(rootEl, rootEl.getAttribute(attr));
+        var gutter = setting('gutter');
+        if (gutter !== null && gutter !== undefined && gutter !== '') rootEl.style.setProperty('--cookie-gap', typeof gutter === 'number' ? gutter + 'px' : String(gutter));
+        var button = named(setting('follow'));
+        var box = button && button.isConnected && floats(button) ? button.getBoundingClientRect() : null;
+        var following = !!box && (box.width > 0 || box.height > 0);
+        if (following) {
+            var W = window.innerWidth, H = window.innerHeight, x = box.left + box.width / 2, y = box.top + box.height / 2;
+            var across = x < W / 3 ? 'left' : x > 2 * W / 3 ? 'right' : 'center';
+            var up = y < H / 2 ? 'top' : 'bottom';
+            var space = 8;
+            rootEl.setAttribute(attr, up + '-' + across);
+            rootEl.style.setProperty('--cookie-follow-block', Math.round(up === 'top' ? box.bottom + space : H - box.top + space) + 'px');
+            rootEl.style.setProperty('--cookie-follow-inline', Math.round(across === 'left' ? box.left : across === 'right' ? W - box.right : 0) + 'px');
+        } else {
+            rootEl.style.removeProperty('--cookie-follow-block');
+            rootEl.style.removeProperty('--cookie-follow-inline');
+            var position = setting('position') || (written ? written.get(rootEl) : null);
+            if (position) rootEl.setAttribute(attr, position); else rootEl.removeAttribute(attr);
+        }
+        rootEl.toggleAttribute(hook('following'), following);
+        // Placed again when the screen changes size, while it shows.
+        if (!placing && setting('follow')) {
+            placing = true;
+            window.addEventListener('resize', function () { if (ui.view !== null) situate(); });
+        }
+    }
+
     /** A configuration that comes after the banner (another language's words, a position): the bare one is built again, the site's gets its words. */
     function redress() {
         if (!ui.root || !ui.root.isConnected) return;
@@ -962,8 +1035,7 @@
         var classes = setting('classes');
         var texts = setting('texts');
         if (classes.root) rootEl.classList.add.apply(rootEl.classList, classes.root.split(/\s+/).filter(Boolean));
-        var position = setting('position');
-        if (position) rootEl.setAttribute(hook('position'), position);
+        situate();
         var variables = setting('variables');
         Object.keys(variables).forEach(function (name) { rootEl.style.setProperty(name, variables[name]); });
         if (classes.reduced) rootEl.classList.toggle(classes.reduced, Cookie.reduced());
@@ -1044,11 +1116,13 @@
             input.type = 'checkbox';
             label.appendChild(input);
             label.appendChild(make('span', 'label'));
-            el.appendChild(label);
-            el.appendChild(make('span', 'required', classes.required));
-            el.appendChild(make('p', 'description', classes.description));
-            el.appendChild(make('ul', 'entries', classes.entries));
-            el.appendChild(make('ul', 'features', classes.features));
+            // A space between the parts, as written HTML has: the name and "Always on" never read
+            // glued together ("...itselfAlways on"), in the text a reader or a copy gets.
+            [label, make('span', 'required', classes.required), make('p', 'description', classes.description),
+                make('ul', 'entries', classes.entries), make('ul', 'features', classes.features)].forEach(function (part, i) {
+                if (i) el.appendChild(document.createTextNode(' '));
+                el.appendChild(part);
+            });
         }
         el.setAttribute(hook('row'), cat.key);
         list.appendChild(el);
@@ -1171,6 +1245,7 @@
     function show(view, opener) {
         if (ui.view === null) reseat();
         if (!ensure()) return;
+        situate();
         if (view !== 'banner' && view !== 'details') view = setting('reopen') === 'banner' ? 'banner' : 'details';
         var details = part('details');
         if (view === 'details' && (!details || details === ui.root)) view = 'banner';
@@ -1574,7 +1649,7 @@
 
     Cookie.ready = function (options) {
         // What the banner is made of, configured after it was made: it is made again.
-        var again = ready && !!options && ['texts', 'classes', 'hooks', 'prefix', 'position', 'variables'].some(function (key) { return options[key] !== undefined; });
+        var again = ready && !!options && ['texts', 'classes', 'hooks', 'prefix', 'position', 'gutter', 'follow', 'variables'].some(function (key) { return options[key] !== undefined; });
         Cookie.configure(options || {});
         ready = true;
         if (again) redress();

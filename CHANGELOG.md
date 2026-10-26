@@ -33,6 +33,45 @@
   tall stop, free across, its keys a screen at a time; the progress is read
   400ms past the last scroll event for iOS's late positions. docs/scenes.md.
   tests/scenes.html, tests/scenes-reduced.html.
+- **scenes** - the keyboard: while a scene is pinned, ArrowDown, PageDown and
+  Space go to where its next step begins, then its end, then the section
+  after it; ArrowUp, PageUp and Shift+Space back, then the section before -
+  and from the top of the section after, back to its end. Keys in a field,
+  on a widget, with a modifier or taken by the page are left alone; the scene
+  listens on the document, before StickyStops, which leaves it a key it took.
+  `keys` option, `data-scene-keys="false"`, `scene:key`. tests/scenes-keys.html.
+- **scenes** - sideways: `data-scene-axis="x"`, a scene read by a horizontal
+  scroll of its track (`[data-scene-track]`), a native overflow-x scroller
+  with scroll-snap on its panels (`[data-scene-panel]`, the steps unless
+  named): trackpad, Shift+wheel, swipe, ArrowLeft/ArrowRight/Home/End on the
+  focused track (made a named region, tabindex 0); progress
+  scrollLeft / (scrollWidth - clientWidth); no length, the page's vertical
+  scroll never held. `data-scene-touched` at the first movement, for good;
+  `[data-scene-hint]` blinks until then (still under reduced motion).
+- **sortable** - a hierarchy: `StickySortable.Tree` (and
+  `$.fn.stickySortableTree`) for nested lists. Dragged by its handle, an
+  item lands where a marker shows, at the level the pointer's horizontal
+  place asks for within what its neighbours allow (`indent`), `maxDepth`
+  (its own subtree counted) and the items that take children (`accepts`,
+  `data-sortable-leaf`); on a touch screen after a long press (`longPress`).
+  On a handle: ArrowUp/ArrowDown among siblings, ArrowRight into the sibling
+  above, ArrowLeft out of the parent, each said in an aria-live region
+  (`labels`). `[data-sortable-toggle]` folds and unfolds (aria-expanded).
+  `onChange` and `sortable:change` with `{item, parent, index, depth, tree}`;
+  `serialize()` gives nested ids. tests/sortable-tree.html.
+- **cookie** - the default row of a category no longer glues its name to
+  "Always on" ("The site itselfAlways on"): its parts are separated as
+  written HTML is, and css/cookie.scss sets `[data-cookie-required]` apart
+  (a margin, smaller). A site's own row (`<template data-cookie-row>`, as
+  omnibase/consent's) is untouched. tests/cookie-banner.html.
+- **cookie** - where the banner floats, configurable: `position` (the six
+  corners and edges, `center`), also as `Cookie.defaults.position` for the
+  whole site and as the banner's own `data-cookie-position`; `gutter`
+  (`--cookie-gap`); `follow`, the cookie button the banner opens next to
+  while that button floats (`data-cookie-following`, `--cookie-follow-block`,
+  `--cookie-follow-inline`, placed again on resize). Nothing named: no
+  attribute, the stylesheet's corner, as before - omnibase/consent's
+  `consent.position` is written as it was. tests/cookie-position.html.
 - **core** - a percentage is a hundredth: `Flow.parseToPixel('15%')` (and
   `Sticky.percentToPixel`, `Transparent.percentToPixel`) gave 15 times the
   width, so a `scroll-padding-top` in % read as thousands of pixels in every

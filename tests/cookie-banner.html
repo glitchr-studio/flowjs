@@ -104,6 +104,7 @@
         H.check(analytics.querySelector('[data-cookie-entries]').textContent === '_pk_*13moMatomo' && q('row', 'preferences').querySelector('[data-cookie-features]').textContent === 'Your time zone' && q('row', 'preferences').querySelector('[data-cookie-entries]').hidden,
             'what it stores (name, duration, purpose) and what it governs', analytics.querySelector('[data-cookie-entries]').textContent);
         H.check(q('row', 'necessary').querySelector('[data-cookie-required]').textContent === 'Always on' && !q('row', 'necessary').querySelector('[data-cookie-required]').hidden && analytics.querySelector('[data-cookie-required]').hidden, 'the required one says so');
+        H.check(/Needed Always on/.test(q('row', 'necessary').textContent.replace(/\s+/g, ' ')) && !/NeededAlways/.test(q('row', 'necessary').textContent), 'its name and "Always on" never glued together', q('row', 'necessary').textContent);
 
         // The keyboard: Tab stays inside, Escape closes and gives the focus back.
         var focusables = Array.prototype.filter.call(details.querySelectorAll('button, input'), function (el) { return !el.disabled; });

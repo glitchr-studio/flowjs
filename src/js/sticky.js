@@ -12,6 +12,17 @@
 // however many pages the navigation swaps in. The core also carries the units,
 // the scroll padding, the scrollers and the programmatic scroll the effects
 // share with the other modules. Needs jQuery.
+/**
+ * @file Sticky, the effects of the scroll on a page: a header that steps aside and comes back, an address that follows the section read, magnets, widgets, scroll-percent triggers, swipes, autoscroll.
+ */
+/**
+ * Told on the window once Sticky is set up on the page.
+ * @event Sticky#sticky:ready
+ */
+/**
+ * Told on a .sticky-scrollpercent-* element when the scroll crosses its percentage: detail {scroll, trigger, dir, percent} (trigger 0 from, 1 once, 2 every).
+ * @event Sticky#scrollpercent
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);

@@ -25,10 +25,18 @@
     &[data-cookie-position$="center"], &[data-cookie-position="top"], &[data-cookie-position="bottom"] { inset-inline: 0; margin-inline: auto; }
     &[data-cookie-position="center"] { inset-block: 0; margin-block: auto; height: fit-content; }
 
+    // Next to the cookie button it follows (the `follow` option, while that button floats): past the
+    // button from its edge, aligned with it across.
+    &[data-cookie-following] { inset-block: auto var(--cookie-follow-block, var(--cookie-gap, 1rem)); }
+    &[data-cookie-following][data-cookie-position^="top"] { inset-block: var(--cookie-follow-block, var(--cookie-gap, 1rem)) auto; }
+    &[data-cookie-following][data-cookie-position$="left"] { inset-inline: var(--cookie-follow-inline, var(--cookie-gap, 1rem)) auto; }
+    &[data-cookie-following][data-cookie-position$="right"] { inset-inline: auto var(--cookie-follow-inline, var(--cookie-gap, 1rem)); }
+
     &.is-reduced, &.is-reduced * { transition: none; animation: none; }
 
     [data-cookie-categories] { list-style: none; margin: 0; padding: 0; }
     [data-cookie-row] { margin-block: var(--cookie-row-gap, .75rem); }
+    [data-cookie-required] { margin-inline-start: .5em; font-size: var(--cookie-small, .85em); opacity: .75; }
     [data-cookie-toggle] { accent-color: var(--cookie-accent, auto); margin-inline-end: .5em; }
     [data-cookie-entries], [data-cookie-features] { margin: .25em 0 0; padding-inline-start: 1.25em; font-size: var(--cookie-small, .85em); }
     [data-cookie-entry] > span + span::before { content: var(--cookie-separator, " - "); }

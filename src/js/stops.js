@@ -160,6 +160,17 @@
 // page the navigation swaps in; StickyStops.attach(scroller) for a scrolling
 // element, or for stops added after the page loaded. Sticky.stops is the same
 // object when sticky.js is loaded.
+/**
+ * @file StickyStops, places a scroll comes to rest on: the scroll settled to the nearest stop once it rests, momentum included, and the keys going from one stop to the next.
+ */
+/**
+ * Told on the scroller (it bubbles) at each glide to a stop: detail {scroller, stop, top, axis, key}.
+ * @event StickyStops#sticky:stop
+ */
+/**
+ * Told on the scroller (it bubbles) as the scroll moves between its stops: the same numbers as --sticky-stop, --sticky-progress and --sticky-progress-held.
+ * @event StickyStops#sticky:progress
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);

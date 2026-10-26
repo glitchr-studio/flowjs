@@ -34,9 +34,43 @@
 // with the stops' `screens` the keys scrub it a screen at a time. Put no
 // stop inside a scene.
 //
+// The keyboard (the `keys` option, on by default; data-scene-keys="false"
+// leaves the keys to the page): while a scene's stage is pinned, ArrowDown,
+// PageDown and Space take it to its next step - the progress where the
+// next step begins, then its end - and from its end to the section after it;
+// ArrowUp, PageUp and Shift+Space back, step by step, then to the section
+// before - and from the top of the section after it, back to its end. Keys in a field, on a widget with keys of its own, with Alt, Ctrl
+// or Meta, or already taken by a handler of the page (preventDefault) are
+// left alone; the scene listens on the document, before StickyStops (on the
+// window), which then leaves the key to it.
+//
+// Sideways (data-scene-axis="x", the `axis` option): the scene is read by a
+// horizontal scroll, the vertical one stays free - the page never waits for
+// the scene. Its track ([data-scene-track], else the scene itself) is a
+// native overflow-x scroller: a trackpad, Shift+wheel, a finger's swipe and,
+// focused, ArrowLeft and ArrowRight (a step at a time; Home, End) move it,
+// and its panels' scroll-snap gives the steps. The progress is
+// scrollLeft / (scrollWidth - clientWidth); the steps, unless data-scene-steps
+// names them, are where the track's panels ([data-scene-panel], else its
+// children) begin - a step per panel, data-scene-step 0 on the first. The track is made focusable (tabindex 0, role region,
+// its aria-label kept or "Scene"). At the first movement the scene takes
+// data-scene-touched, for good: a hint ([data-scene-hint], an arrow that
+// blinks, still under reduced motion) is shown until then.
+//
 // The progress is read in the frame the scroll is heard in (Flow.onScroll),
 // and for 400ms after the last scroll event: iOS tells its page's position a
 // frame or more late (1.5.4), and a momentum scroll may end with no event.
+/**
+ * @file StickyScenes, scenes the scroll plays: a section whose stage stays pinned while the page scrolls through it, its progress in CSS and in events - or read sideways, by a horizontal scroll of its track.
+ */
+/**
+ * Told on the scene (it bubbles) at each frame its progress changes: detail {progress, step, stepProgress, state, frame, scene}.
+ * @event StickyScenes#scene:progress
+ */
+/**
+ * Told on the scene when a key takes it to a step, or out of it: detail {progress, top, scene} (progress 2: the section after, -1: the one before).
+ * @event StickyScenes#scene:key
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);
@@ -57,8 +91,17 @@
         length: '100vh',       // how long the scene lasts, in scroll: px, vh, rem...
         steps: [],             // the progress at which each step begins after the first: [0.3, 0.6]
         reduced: 'end',        // prefers-reduced-motion: 'end', 'start', or 'live'
-        tail: 400              // ms the progress is still read after the last scroll event (late positions, momentum)
+        tail: 400,             // ms the progress is still read after the last scroll event (late positions, momentum)
+        keys: true,            // arrows, page keys and Space step through a pinned scene
+        axis: 'y',             // 'x': read by a horizontal scroll of its track
+        track: '[data-scene-track]',
+        panel: '[data-scene-panel]'
     };
+
+    // Where the keys belong to something else: typing, a widget of its own, Space on what it presses.
+    var TYPING = 'input, textarea, select, iframe, [contenteditable]:not([contenteditable="false"])';
+    var WIDGET = '[role="slider"], [role="spinbutton"], [role="scrollbar"], [role="tab"], [role="tablist"], [role="menu"], [role="menubar"], [role="menuitem"], [role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="grid"], [role="tree"], [role="textbox"], [role="combobox"], audio, video, [data-scene-track]';
+    var PRESSABLE = 'button, a[href], summary, label, [role="button"], [role="link"], [role="checkbox"], [role="switch"]';
 
     var scenes = [];
     var running = false, until = 0;
@@ -99,11 +142,17 @@
         if (data.sceneLength) this.options.length = data.sceneLength;
         if (data.sceneSteps) this.options.steps = data.sceneSteps;
         if (data.sceneReduced && data.sceneReduced !== 'true') this.options.reduced = data.sceneReduced;
+        if (data.sceneKeys) this.options.keys = data.sceneKeys !== 'false';
+        if (data.sceneAxis) this.options.axis = data.sceneAxis;
+        this.horizontal = this.options.axis === 'x';
+        this.given = list(this.options.steps).length > 0;
         this.steps = list(this.options.steps).sort(function (a, b) { return a - b; });
         this.stage = el.querySelector(this.options.stage);
         this.last = null;
         this.sequence = null;
+        this.aim = null;
         el.classList.add('sticky-scene');
+        if (this.horizontal) this.sideways();
         this.measureLength();
         var canvas = el.querySelector('canvas[data-scene-sequence], canvas[data-scene-frames-list]');
         if (canvas) this.sequence = new Sequence(canvas);
@@ -114,7 +163,121 @@
         return this.options.reduced !== 'live' && reducedMotion();
     };
 
+    // ── Sideways: a track the reader scrolls ──
+    Scene.prototype.sideways = function () {
+        var el = this.el, self = this;
+        el.setAttribute('data-scene-axis', 'x');
+        var track = el.querySelector(this.options.track) || el;
+        this.track = track;
+        if (!track.hasAttribute('tabindex')) track.setAttribute('tabindex', '0');
+        if (!track.hasAttribute('role')) track.setAttribute('role', 'region');
+        if (!track.hasAttribute('aria-label') && !track.hasAttribute('aria-labelledby')) track.setAttribute('aria-label', 'Scene');
+        this.onTrack = function () {
+            if (!el.hasAttribute('data-scene-touched') && track.scrollLeft > 1) el.setAttribute('data-scene-touched', '');
+            self.update(false);
+        };
+        Flow.onScroll(track, this.onTrack);
+        this.onTrackKey = function (e) { self.trackKey(e); };
+        track.addEventListener('keydown', this.onTrackKey);
+    };
+
+    /** Where the panels begin, as progress (the steps of a sideways scene that names none). */
+    Scene.prototype.panelSteps = function () {
+        var track = this.track, max = track.scrollWidth - track.clientWidth;
+        if (max <= 0) return [];
+        var panels = track.querySelectorAll(this.options.panel);
+        if (!panels.length) panels = track.children;
+        var origin = track.getBoundingClientRect().left - track.scrollLeft;
+        var out = [];
+        Array.prototype.forEach.call(panels, function (panel) {
+            var at = (panel.getBoundingClientRect().left - origin) / max;
+            // Each panel after the first is a step - the last one too, which begins at the end of the range.
+            if (at > 0.001) out.push(Math.min(1, Math.round(at * 10000) / 10000));
+        });
+        return out;
+    };
+
+    /** The scroll positions of the steps, in order: where each begins, then the end. */
+    Scene.prototype.marks = function () {
+        return [0].concat(this.steps, [1]);
+    };
+
+    Scene.prototype.trackKey = function (e) {
+        if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.target !== this.track) return;
+        var marks = this.marks(), max = this.track.scrollWidth - this.track.clientWidth;
+        var from = this.aim !== null && Flow.now() < this.aimUntil ? this.aim : this.progress();
+        var to = null, i;
+        if (e.key === 'ArrowRight') { for (i = 0; i < marks.length; i++) if (marks[i] > from + 0.002) { to = marks[i]; break; } }
+        else if (e.key === 'ArrowLeft') { for (i = marks.length - 1; i >= 0; i--) if (marks[i] < from - 0.002) { to = marks[i]; break; } }
+        else if (e.key === 'Home') to = 0;
+        else if (e.key === 'End') to = 1;
+        else return;
+        e.preventDefault();
+        if (to === null) return;
+        this.aim = to; this.aimUntil = Flow.now() + 700;
+        this.track.scrollTo({ left: Math.round(to * max), behavior: reducedMotion() ? 'auto' : 'smooth' });
+    };
+
+    // ── The keys of a pinned scene ──
+    Scene.prototype.pinned = function () {
+        if (this.horizontal || this.reduced() || !this.stage) return false;
+        var box = this.el.getBoundingClientRect();
+        var top = parseFloat(getComputedStyle(this.stage).top) || 0;
+        var stage = this.stage.getBoundingClientRect().height;
+        return box.top <= top + 1 && box.bottom >= top + stage - 1;
+    };
+
+    /** The window's scroll position at a progress of the scene. */
+    Scene.prototype.scrollAt = function (p) {
+        var box = this.el.getBoundingClientRect();
+        var top = parseFloat(getComputedStyle(this.stage).top) || 0;
+        var run = box.height - this.stage.getBoundingClientRect().height;
+        return window.pageYOffset + box.top - top + p * run;
+    };
+
+    /** Where a key sends the window: a scroll position, or null (the key is not the scene's). */
+    Scene.prototype.keyed = function (e) {
+        if (!this.options.keys || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return null;
+        var key = e.key, space = key === ' ' || key === 'Spacebar', direction = 0;
+        if (e.shiftKey && !space) return null;
+        if (key === 'ArrowDown' || key === 'Down' || key === 'PageDown' || (space && !e.shiftKey)) direction = 1;
+        else if (key === 'ArrowUp' || key === 'Up' || key === 'PageUp' || (space && e.shiftKey)) direction = -1;
+        if (!direction) return null;
+        var target = e.target instanceof Element ? e.target : null;
+        if (target && (target.closest(TYPING) || target.closest(WIDGET) || target.closest('dialog[open]'))) return null;
+        if (target && space && target.closest(PRESSABLE)) return null;
+        // On its way out (a key sent it to a section beside it): the keys are the page's again.
+        if (this.leaving && Flow.now() < this.leaving && direction === this.leavingWay) return null;
+        var chained = this.aim !== null && Flow.now() < this.aimUntil;
+        if (!chained && !this.pinned()) {
+            // Just after its end (the section after it read from its top), back up: the scene's end, its last step.
+            var bottom0 = this.el.getBoundingClientRect().bottom;
+            if (direction < 0 && !this.horizontal && !this.reduced() && this.stage && bottom0 >= -2 && bottom0 <= window.innerHeight / 2) return { progress: 1, top: this.scrollAt(1) };
+            return null;
+        }
+        var p = chained ? this.aim : this.progress(), marks = this.marks(), i;
+        if (direction > 0) {
+            for (i = 0; i < marks.length; i++) if (marks[i] > p + 0.002) return { progress: marks[i], top: this.scrollAt(marks[i]) };
+            // Past its end: the section after it.
+            var next = this.el.nextElementSibling;
+            var bottom = window.pageYOffset + this.el.getBoundingClientRect().bottom;
+            return { progress: 2, top: next ? window.pageYOffset + next.getBoundingClientRect().top : bottom };
+        }
+        for (i = marks.length - 1; i >= 0; i--) if (marks[i] < p - 0.002) return { progress: marks[i], top: this.scrollAt(marks[i]) };
+        // Before its start: the section before it (its last screen when it is taller than one).
+        var start = window.pageYOffset + this.el.getBoundingClientRect().top;
+        var previous = this.el.previousElementSibling;
+        var before = previous ? window.pageYOffset + previous.getBoundingClientRect().top : start - window.innerHeight;
+        return { progress: -1, top: Math.max(before, start - window.innerHeight) };
+    };
+
     Scene.prototype.measureLength = function () {
+        if (this.horizontal) {
+            this.el.toggleAttribute('data-scene-reduced', this.reduced());
+            this.el.style.removeProperty('--scene-length');
+            if (!this.given) this.steps = this.panelSteps();
+            return;
+        }
         var reduced = this.reduced();
         this.el.toggleAttribute('data-scene-reduced', reduced);
         var px = lengthOf(this.options.length, this.el);
@@ -124,6 +287,10 @@
     /** The progress (0 to 1) of the scene at the scroll position now. */
     Scene.prototype.progress = function () {
         if (this.reduced()) return this.options.reduced === 'start' ? 0 : 1;
+        if (this.horizontal) {
+            var max = this.track.scrollWidth - this.track.clientWidth;
+            return max > 0 ? clamp(this.track.scrollLeft / max) : 0;
+        }
         var box = this.el.getBoundingClientRect();
         var stage = this.stage ? this.stage.getBoundingClientRect().height : window.innerHeight;
         var top = this.stage ? parseFloat(getComputedStyle(this.stage).top) || 0 : 0;
@@ -155,6 +322,7 @@
     Scene.prototype.destroy = function () {
         var self = this;
         scenes = scenes.filter(function (s) { return s !== self; });
+        if (this.track) { Flow.offScroll(this.track, this.onTrack); this.track.removeEventListener('keydown', this.onTrackKey); }
         ['--scene-progress', '--scene-step', '--scene-step-progress', '--scene-length'].forEach(function (p) { self.el.style.removeProperty(p); });
     };
 
@@ -239,11 +407,30 @@
         if (!running) { running = true; Flow.frame(tick); }
     }
 
+    // One keydown listener for every scene, on the document (bubble): before
+    // StickyStops' on the window, which leaves a key taken here alone.
+    function onKeydown(e) {
+        for (var i = 0; i < scenes.length; i++) {
+            var scene = scenes[i], to = scene.keyed(e);
+            if (!to) continue;
+            e.preventDefault();
+            var inside = to.progress >= 0 && to.progress <= 1;
+            scene.aim = inside ? to.progress : null;
+            scene.aimUntil = Flow.now() + 700;
+            scene.leaving = inside ? 0 : Flow.now() + 700;
+            scene.leavingWay = to.progress > 1 ? 1 : -1;
+            window.scrollTo({ top: Math.round(to.top), behavior: reducedMotion() ? 'auto' : 'smooth' });
+            scene.el.dispatchEvent(new CustomEvent('scene:key', { bubbles: true, detail: { progress: to.progress, top: Math.round(to.top), scene: scene } }));
+            return;
+        }
+    }
+
     var listening = false;
     function listen() {
         if (listening) return;
         listening = true;
         Flow.onScroll(window, heard);
+        document.addEventListener('keydown', onKeydown);
         Flow.onResize(function () { scenes.forEach(function (s) { s.measureLength(); s.update(true); }); });
         if (window.matchMedia) {
             var mq = window.matchMedia('(prefers-reduced-motion: reduce)');

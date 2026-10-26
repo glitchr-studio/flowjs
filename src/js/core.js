@@ -15,6 +15,9 @@
 // under a bundler, or finds it as window.Flow when loaded by a <script>. No
 // jQuery needed by itself: the plugins are installed when a module asks for
 // jQuery (Flow.jquery()) and jQuery is loaded.
+/**
+ * @file Flow, the core every module stands on: units, scrollers and their listeners, one animation frame for every measurement, the programmatic scroll, the address's hash, the page's (re)loads.
+ */
 (function (root, factory) {
 
     var api = root.Flow && root.Flow.core === true ? root.Flow : factory(root);

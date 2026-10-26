@@ -4,6 +4,13 @@
 // effects. Pointer Events (not HTML5 drag-and-drop) so a custom placeholder
 // and touch both work with one code path - requires touch-action: none on
 // the handle in CSS.
+/**
+ * @file StickySortable, sortable lists and trees: drag-and-drop with pointer events (mouse, pen, touch), the arrows on a handle for the keyboard, items moved between the levels of a tree.
+ */
+/**
+ * Told on a tree's root (StickySortable.Tree) after each move: detail {item, parent, index, depth, tree}.
+ * @event StickySortable#sortable:change
+ */
 (function (root, factory) {
 
     var core = root.Flow && root.Flow.core === true ? root.Flow : (typeof require === 'function' ? require('./core.js') : null);
@@ -531,7 +538,357 @@
                 }
             });
         };
+        // $(ol).stickySortableTree({ handle: '.grip', maxDepth: 2 }): StickySortable.Tree, once per root.
+        $.fn.stickySortableTree = function (options) {
+            return this.each(function () {
+                if (!this._stickySortableTree) {
+                    this._stickySortableTree = new StickySortable.Tree(this, options);
+                }
+            });
+        };
     }
+
+
+    // ── StickySortable.Tree: a hierarchy (1.6) ──────────────────────────────
+    // Nested lists - an item holding a list of its own - reordered and
+    // re-parented: a chapter's sections, a menu's entries.
+    //
+    //   <ol id="toc">
+    //     <li data-sortable-item data-id="c1"><button class="grip">⠿</button> Chapter 1
+    //       <ol><li data-sortable-item data-id="s1"><button class="grip">⠿</button> Section</li></ol>
+    //     </li>
+    //     <li data-sortable-item data-id="c2" data-sortable-leaf>…</li>   (accepts no child)
+    //   </ol>
+    //   var tree = new StickySortable.Tree(document.getElementById('toc'), { handle: '.grip', maxDepth: 2 });
+    //
+    // Dragged by its handle (the pointer; on a touch screen after a long
+    // press), an item is dropped where a marker shows: between two items, at
+    // the level the pointer's horizontal place asks for - one step right is
+    // the child of the item above, a step left the level of its parent - as
+    // far as the neighbours allow (never deeper than under the item above,
+    // never shallower than the item below), within maxDepth and the items
+    // that accept children. On a focused handle: ↑ ↓ move the item among its
+    // siblings, → makes it the last child of the one above, ← takes it out to
+    // its parent's level, just after its parent; each move said in an
+    // aria-live region. A [data-sortable-toggle] button folds and unfolds an
+    // item's children (aria-expanded). After a move: onChange({item, parent,
+    // index, depth, tree}) and "sortable:change" on the root, the same detail;
+    // tree.serialize() is the tree as nested ids ([{id, children: [...]}]).
+    var treeDefaults = {
+        handle: null,                       // selector, relative to the item; null drags the whole item
+        items: '[data-sortable-item]',
+        lists: 'ol, ul',                    // an item's own list of children: its first such child element
+        indent: 24,                         // px of horizontal movement that is one level
+        maxDepth: Infinity,                 // levels below the root (0: a flat list; 1: children, no grandchildren)
+        accepts: null,                      // function(item): bool - may it have children; default: not [data-sortable-leaf]
+        dragThreshold: 4,
+        longPress: 350,                     // ms a finger holds a handle before the item is dragged
+        draggingClass: 'is-dragging',
+        markerClass: 'is-tree-marker',
+        collapsedClass: 'is-collapsed',
+        labels: {                           // the announcements, in the page's words; %s: the item, the place
+            moved: '%item% moved: position %index% of %count%, level %depth%.',
+            nested: '%item% is now inside %parent%.',
+            outdented: '%item% moved out of %parent%.',
+            refused: '%item% cannot move there.'
+        },
+        onChange: null
+    };
+
+    function Tree(root, options) {
+        this.root = root;
+        this.options = Object.assign({}, treeDefaults, options);
+        this.options.labels = Object.assign({}, treeDefaults.labels, options && options.labels);
+        this.drag = null;
+        this.live = document.createElement('div');
+        this.live.className = 'sortable-live';
+        this.live.setAttribute('aria-live', 'polite');
+        this.live.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
+        root.parentNode.insertBefore(this.live, root.nextSibling);
+        this.onPointerDown = this.onPointerDown.bind(this);
+        this.onMove = this.onMove.bind(this);
+        this.onUp = this.onUp.bind(this);
+        this.onKeyDown = this.onKeyDown.bind(this);
+        this.onClick = this.onClick.bind(this);
+        root.addEventListener('pointerdown', this.onPointerDown);
+        root.addEventListener('keydown', this.onKeyDown);
+        root.addEventListener('click', this.onClick);
+        var self = this;
+        this.all().forEach(function (item) { self.sync(item); });
+    }
+
+    Tree.prototype.all = function () {
+        return Array.prototype.slice.call(this.root.querySelectorAll(this.options.items));
+    };
+    Tree.prototype.isItem = function (el) { return !!el && el.matches && el.matches(this.options.items) && this.root.contains(el); };
+    Tree.prototype.listOf = function (item, create) {
+        for (var i = 0; i < item.children.length; i++) if (item.children[i].matches(this.options.lists)) return item.children[i];
+        if (!create) return null;
+        var list = document.createElement(this.root.tagName);
+        item.appendChild(list);
+        return list;
+    };
+    Tree.prototype.parentOf = function (item) {
+        var p = item.parentElement && item.parentElement.closest(this.options.items);
+        return p && this.root.contains(p) ? p : null;
+    };
+    Tree.prototype.depthOf = function (item) {
+        var d = 0;
+        for (var p = this.parentOf(item); p; p = this.parentOf(p)) d++;
+        return d;
+    };
+    Tree.prototype.siblingsOf = function (item) {
+        var opts = this.options;
+        return Array.prototype.filter.call(item.parentElement.children, function (el) { return el.matches(opts.items); });
+    };
+    /** How many levels an item's subtree holds below it (0 for an item without children). */
+    Tree.prototype.heightOf = function (item) {
+        var list = this.listOf(item), h = 0, self = this;
+        if (!list) return 0;
+        Array.prototype.forEach.call(list.children, function (child) { if (self.isItem(child)) h = Math.max(h, 1 + self.heightOf(child)); });
+        return h;
+    };
+    Tree.prototype.accepts = function (item) {
+        return typeof this.options.accepts === 'function' ? !!this.options.accepts(item) : !item.hasAttribute('data-sortable-leaf');
+    };
+    Tree.prototype.label = function (item) {
+        var l = item.getAttribute('data-sortable-label');
+        if (l) return l;
+        var clone = item.cloneNode(true), opts = this.options;
+        var strip = [opts.lists, '[data-sortable-toggle]', '[aria-hidden="true"]'].concat(opts.handle ? [opts.handle] : []).join(',');
+        Array.prototype.forEach.call(clone.querySelectorAll(strip), function (el) { el.remove(); });
+        return clone.textContent.replace(/\s+/g, ' ').trim();
+    };
+
+    /** The tree as nested ids: data-id, else id. */
+    Tree.prototype.serialize = function (list) {
+        var self = this;
+        list = list || this.root;
+        return Array.prototype.filter.call(list.children, function (el) { return self.isItem(el); }).map(function (item) {
+            var children = self.listOf(item);
+            return { id: item.getAttribute('data-id') || item.id || self.label(item), children: children ? self.serialize(children) : [] };
+        });
+    };
+
+    /** An item's children folded (true) or unfolded. */
+    Tree.prototype.collapse = function (item, folded) {
+        if (folded === undefined) folded = true;
+        item.classList.toggle(this.options.collapsedClass, folded);
+        var list = this.listOf(item);
+        if (list) list.hidden = folded;
+        this.sync(item);
+    };
+    Tree.prototype.expand = function (item) { this.collapse(item, false); };
+    Tree.prototype.sync = function (item) {
+        var toggle = item.querySelector(':scope > [data-sortable-toggle]') || (item.firstElementChild && item.firstElementChild.querySelector && item.firstElementChild.querySelector('[data-sortable-toggle]'));
+        var list = this.listOf(item);
+        var has = !!list && Array.prototype.some.call(list.children, this.isItem.bind(this));
+        if (toggle) {
+            toggle.hidden = !has;
+            toggle.setAttribute('aria-expanded', String(!item.classList.contains(this.options.collapsedClass)));
+            if (list && !list.id) list.id = 'sortable-children-' + Math.random().toString(36).slice(2, 9);
+            if (list) toggle.setAttribute('aria-controls', list.id);
+        }
+        // An empty list left behind by the last child moved away: gone.
+        if (list && !has) list.remove();
+    };
+
+    Tree.prototype.say = function (key, item, extra) {
+        var text = this.options.labels[key].replace('%item%', this.label(item));
+        Object.keys(extra || {}).forEach(function (k) { text = text.replace('%' + k + '%', extra[k]); });
+        this.live.textContent = text;
+        return text;
+    };
+
+    Tree.prototype.changed = function (item, previousParent) {
+        var self = this;
+        [item, this.parentOf(item), previousParent].forEach(function (el) { if (el) self.sync(el); });
+        var parent = this.parentOf(item);
+        var detail = { item: item, parent: parent, index: this.siblingsOf(item).indexOf(item), depth: this.depthOf(item), tree: this.serialize() };
+        if (typeof this.options.onChange === 'function') this.options.onChange(detail);
+        this.root.dispatchEvent(new CustomEvent('sortable:change', { bubbles: true, detail: detail }));
+        return detail;
+    };
+
+    /** Whether an item (its whole subtree) may sit at a depth under a parent. */
+    Tree.prototype.allowed = function (item, parent, depth) {
+        if (depth + this.heightOf(item) > this.options.maxDepth) return false;
+        if (parent && (!this.accepts(parent) || parent === item || item.contains(parent))) return false;
+        return true;
+    };
+
+    // ── The keyboard ──
+    Tree.prototype.onKeyDown = function (e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.key) === -1 || e.altKey || e.ctrlKey || e.metaKey) return;
+        var handle = this.options.handle ? e.target.closest(this.options.handle) : e.target;
+        var item = handle && handle.closest(this.options.items);
+        if (!item || !this.root.contains(item) || (this.options.handle && !handle.matches(this.options.handle))) return;
+        e.preventDefault();
+        var siblings = this.siblingsOf(item), index = siblings.indexOf(item), previousParent = this.parentOf(item);
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            var other = siblings[index + (e.key === 'ArrowUp' ? -1 : 1)];
+            if (!other) { this.say('refused', item); return; }
+            item.parentElement.insertBefore(item, e.key === 'ArrowUp' ? other : other.nextSibling);
+            this.changed(item, previousParent);
+            this.say('moved', item, { index: this.siblingsOf(item).indexOf(item) + 1, count: siblings.length, depth: this.depthOf(item) + 1 });
+        } else if (e.key === 'ArrowRight') {
+            var above = siblings[index - 1];
+            if (!above || !this.allowed(item, above, this.depthOf(item) + 1)) { this.say('refused', item); return; }
+            this.listOf(above, true).appendChild(item);
+            this.expand(above);
+            this.changed(item, previousParent);
+            this.say('nested', item, { parent: this.label(above) });
+        } else {
+            var parent = this.parentOf(item);
+            if (!parent) { this.say('refused', item); return; }
+            parent.parentElement.insertBefore(item, parent.nextSibling);
+            this.changed(item, previousParent);
+            this.say('outdented', item, { parent: this.label(parent) });
+        }
+        if (handle && handle.focus) handle.focus();
+    };
+
+    Tree.prototype.onClick = function (e) {
+        var toggle = e.target.closest && e.target.closest('[data-sortable-toggle]');
+        if (!toggle || !this.root.contains(toggle)) return;
+        var item = toggle.closest(this.options.items);
+        if (item) this.collapse(item, !item.classList.contains(this.options.collapsedClass));
+    };
+
+    // ── The pointer ──
+    Tree.prototype.onPointerDown = function (e) {
+        if (this.drag || (e.button !== undefined && e.button !== 0)) return;
+        var handle = this.options.handle ? e.target.closest(this.options.handle) : e.target;
+        var item = handle && e.target.closest(this.options.items);
+        if (!item || !this.root.contains(item) || e.target.closest('[data-sortable-toggle]')) return;
+        var self = this, start = { x: e.clientX, y: e.clientY, id: e.pointerId, at: Flow.now() };
+        var touch = e.pointerType === 'touch';
+        var armed = !touch, timer = null;
+        if (touch) timer = setTimeout(function () { armed = true; item.classList.add('is-held'); }, this.options.longPress);
+        var pending = function (m) {
+            if (m.pointerId !== start.id) return;
+            var dx = m.clientX - start.x, dy = m.clientY - start.y;
+            if (Math.sqrt(dx * dx + dy * dy) < self.options.dragThreshold) return;
+            if (!armed) { cancel(); return; }       // a finger that moved before the long press: not a drag
+            cancel();
+            self.begin(item, start, m);
+        };
+        var cancel = function () {
+            clearTimeout(timer);
+            item.classList.remove('is-held');
+            document.removeEventListener('pointermove', pending);
+            document.removeEventListener('pointerup', cancel);
+            document.removeEventListener('pointercancel', cancel);
+        };
+        document.addEventListener('pointermove', pending);
+        document.addEventListener('pointerup', cancel);
+        document.addEventListener('pointercancel', cancel);
+    };
+
+    Tree.prototype.begin = function (item, start, e) {
+        var marker = document.createElement('li');
+        marker.className = this.options.markerClass;
+        marker.setAttribute('aria-hidden', 'true');
+        this.drag = { item: item, start: start, marker: marker, place: null, from: this.parentOf(item) };
+        item.classList.add(this.options.draggingClass);
+        item.style.pointerEvents = 'none';
+        document.addEventListener('pointermove', this.onMove);
+        document.addEventListener('pointerup', this.onUp);
+        document.addEventListener('pointercancel', this.onUp);
+        this.onMove(e);
+    };
+
+    /** Where a pointer at (x, y) drops the item: {list, before, parent, depth}. */
+    Tree.prototype.place = function (x, y) {
+        var self = this, item = this.drag.item;
+        var visible = this.all().filter(function (el) {
+            if (el === item || item.contains(el)) return false;
+            for (var p = self.parentOf(el); p; p = self.parentOf(p)) if (p.classList.contains(self.options.collapsedClass)) return false;
+            return true;
+        });
+        // The item before which the marker goes: the first whose middle is below the pointer.
+        var nextIndex = visible.length;
+        for (var i = 0; i < visible.length; i++) {
+            var r = visible[i].getBoundingClientRect();
+            var top = r.top, firstLine = visible[i].firstElementChild ? visible[i].firstElementChild.getBoundingClientRect() : r;
+            if (y < top + Math.min(r.height, firstLine.height || r.height) / 2) { nextIndex = i; break; }
+        }
+        var prev = visible[nextIndex - 1] || null, next = visible[nextIndex] || null;
+        var maxDepth = prev ? this.depthOf(prev) + (this.accepts(prev) && !prev.classList.contains(this.options.collapsedClass) ? 1 : 0) : 0;
+        var minDepth = next ? this.depthOf(next) : 0;
+        if (minDepth > maxDepth) minDepth = maxDepth;
+        // The level asked for: the item's own, plus one per indent the pointer went right.
+        var wanted = Math.round((x - this.drag.start.x) / this.options.indent) + this.depthOf(item);
+        var depth = Math.max(minDepth, Math.min(maxDepth, wanted));
+        while (depth > minDepth && !this.allowed(item, depth === 0 ? null : this.ancestorAt(prev, depth - 1), depth)) depth--;
+        var parent = depth === 0 ? null : this.ancestorAt(prev, depth - 1);
+        if (!this.allowed(item, parent, depth)) return null;
+        // The list and the place in it.
+        if (prev && depth === this.depthOf(prev) + 1) return { parent: prev, depth: depth, list: this.listOf(prev), before: this.firstItemOf(this.listOf(prev)), into: prev };
+        var sibling = prev ? this.ancestorAt(prev, depth) : null;
+        if (sibling) return { parent: parent, depth: depth, list: sibling.parentElement, before: sibling.nextSibling };
+        return { parent: null, depth: 0, list: this.root, before: this.firstItemOf(this.root) };
+    };
+    Tree.prototype.ancestorAt = function (item, depth) {
+        if (!item) return null;
+        var chain = [item];
+        for (var p = this.parentOf(item); p; p = this.parentOf(p)) chain.unshift(p);
+        return chain[depth] || null;
+    };
+    Tree.prototype.firstItemOf = function (list) {
+        if (!list) return null;
+        for (var i = 0; i < list.children.length; i++) if (this.isItem(list.children[i])) return list.children[i];
+        return null;
+    };
+
+    Tree.prototype.onMove = function (e) {
+        if (!this.drag || e.pointerId !== this.drag.start.id) return;
+        if (e.cancelable) e.preventDefault();
+        // The item follows the pointer; where it will land, the marker says.
+        this.drag.item.style.transform = 'translate(' + (e.clientX - this.drag.start.x) + 'px,' + (e.clientY - this.drag.start.y) + 'px)';
+        var place = this.place(e.clientX, e.clientY), was = this.drag.place;
+        this.drag.place = place;
+        var marker = this.drag.marker;
+        var tidy = function (self) { if (was && was.into && (!place || place.into !== was.into)) self.sync(was.into); };
+        if (!place) { marker.remove(); tidy(this); return; }
+        // The marker: a line at the level aimed at, shifted as a tree is.
+        marker.style.setProperty('--sortable-depth', String(place.depth));
+        marker.setAttribute('data-depth', String(place.depth));
+        var list = place.list || this.listOf(place.into, true);
+        if (place.before) list.insertBefore(marker, place.before); else list.appendChild(marker);
+        tidy(this);                                     // a list opened for an earlier place, now empty: gone
+    };
+
+    Tree.prototype.onUp = function (e) {
+        if (!this.drag || (e.pointerId !== undefined && e.pointerId !== this.drag.start.id)) return;
+        document.removeEventListener('pointermove', this.onMove);
+        document.removeEventListener('pointerup', this.onUp);
+        document.removeEventListener('pointercancel', this.onUp);
+        var drag = this.drag, item = drag.item, marker = drag.marker;
+        this.drag = null;
+        item.classList.remove(this.options.draggingClass);
+        item.style.transform = item.style.pointerEvents = '';
+        if (e.type === 'pointercancel' || !drag.place || !marker.parentNode) {
+            marker.remove();
+            if (drag.place && drag.place.into) this.sync(drag.place.into);
+            return;
+        }
+        marker.parentNode.insertBefore(item, marker);
+        marker.remove();
+        if (drag.place.into) this.expand(drag.place.into);
+        var detail = this.changed(item, drag.from);
+        this.say('moved', item, { index: detail.index + 1, count: this.siblingsOf(item).length, depth: detail.depth + 1 });
+    };
+
+    Tree.prototype.destroy = function () {
+        this.root.removeEventListener('pointerdown', this.onPointerDown);
+        this.root.removeEventListener('keydown', this.onKeyDown);
+        this.root.removeEventListener('click', this.onClick);
+        this.live.remove();
+    };
+
+    Tree.defaults = treeDefaults;
+    StickySortable.Tree = Tree;
 
     StickySortable.defaults = defaults;
 
