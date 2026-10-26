@@ -1,0 +1,52 @@
+{#
+ # The demonstration consent panel, as omnibase/consent writes it on a real site, on
+ # @glitchr/flowjs/cookie: a cookie button, and its panel - the question (accept, refuse, customize,
+ # the countdown when there is one) and the detailed section (a switch per category, refuse all and
+ # accept all side by side, save). The panel is the library's banner ([data-cookie-banner]); a page
+ # has two places for it, the corner and the Cookie station, and the button pressed takes it
+ # (site.js, Cookie.mount()).
+ #
+ #   place   corner | section
+ #}
+{% set _id = 'fc-panel-' ~ place %}
+<div class="fc is-{{ place }}" data-fc="{{ place }}">
+    <button type="button" class="fc-button" data-fc-toggle aria-expanded="false" aria-controls="{{ _id }}" aria-label="Cookies: your choice">
+        <svg class="fc-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5Zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm-5 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>
+    </button>
+    <div class="fc-panel" id="{{ _id }}" data-cookie-banner hidden>
+        <div class="fc-summary" data-cookie-summary>
+            <p class="fc-title" data-cookie-text="title">Cookies</p>
+            <p class="fc-text" data-cookie-text="text">A demonstration: Flow keeps your answer in this browser only.</p>
+            <p class="fc-implicit" data-cookie-countdown hidden>No answer: refused in <span class="fc-count" data-cookie-count>10</span> s.</p>
+            <div class="fc-actions">
+                <button type="button" data-cookie-refuse data-cookie-text="refuse">Refuse</button>
+                <button type="button" data-cookie-accept data-cookie-text="accept">Accept</button>
+            </div>
+            <div class="fc-more"><button type="button" class="fc-link" data-cookie-customize data-cookie-text="customize">Customize</button></div>
+        </div>
+        <div class="fc-section" data-cookie-details hidden>
+            <p class="fc-title" data-cookie-text="detailsTitle">Your choices</p>
+            <ul class="fc-categories" data-cookie-categories></ul>
+            <template data-cookie-row>
+                <li class="fc-category">
+                    <label class="fc-category-head">
+                        <input type="checkbox" data-cookie-toggle>
+                        <span class="fc-category-text">
+                            <strong data-cookie-label></strong>
+                            <em class="fc-required" data-cookie-required>Always on</em>
+                            <small data-cookie-description></small>
+                        </span>
+                    </label>
+                </li>
+            </template>
+            <div class="fc-actions">
+                <button type="button" data-cookie-refuse data-cookie-text="refuseAll">Refuse all</button>
+                <button type="button" data-cookie-accept data-cookie-text="acceptAll">Accept all</button>
+            </div>
+            <div class="fc-more">
+                <button type="button" class="fc-link" data-cookie-close data-cookie-text="close">Close</button>
+                <button type="button" class="fc-save" data-cookie-save data-cookie-text="save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>

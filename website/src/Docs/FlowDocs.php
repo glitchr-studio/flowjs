@@ -31,6 +31,29 @@ class FlowDocs
     /** The modules, in the README's order. */
     public const MODULES = ['core', 'navigation', 'sticky', 'scenes', 'sortable', 'ajaxer', 'cookie', 'testing'];
 
+    /** The API reference's groups, as the showcase's stations: a group's title => its globals. */
+    public const API_GROUPS = [
+        'Core' => ['Flow'],
+        'Navigation' => ['Transparent', 'FlowFrame'],
+        'Scrolling' => ['Sticky', 'StickyStops', 'StickyScenes'],
+        'Lists' => ['StickySortable'],
+        'Ajaxer' => ['Ajaxer'],
+        'Cookie' => ['Cookie'],
+    ];
+
+    /** Each global's part of the manual and its demonstration on the showcase (anchors). */
+    public const API_LINKS = [
+        'Flow' => ['core', null],
+        'Transparent' => ['navigation', 'navigation'],
+        'FlowFrame' => ['navigation-a-website-in-the-website-flowframe-16', 'navigation'],
+        'Sticky' => ['sticky', 'sticky'],
+        'StickyStops' => ['sticky-scroll-stops', 'stops'],
+        'StickyScenes' => ['scenes', 'scenes'],
+        'StickySortable' => ['sortable', 'sortable'],
+        'Ajaxer' => ['ajaxer', 'ajaxer'],
+        'Cookie' => ['cookie', 'cookie'],
+    ];
+
     private ?Registry $registry = null;
 
     private ?Changelog $changelog = null;
@@ -67,7 +90,7 @@ class FlowDocs
             return null;
         }
 
-        return $this->pages['api'] ??= new OnePage($this->version('api'), $this->links($this->urls->generate('app_api')), $this->urls->generate('app_api'));
+        return $this->pages['api'] ??= new OnePage($this->version('api'), $this->links($this->urls->generate('app_api')), $this->urls->generate('app_api'), groups: true);
     }
 
     public function search(): SearchIndex
@@ -117,8 +140,23 @@ class FlowDocs
                 'file' => $this->jsdocFile,
                 'root' => $this->jsdocRoot,
                 'order' => ['Flow', 'Transparent', 'FlowFrame', 'Sticky', 'StickyStops', 'StickyScenes', 'StickySortable', 'Ajaxer', 'Cookie'],
+                'groups' => self::API_GROUPS,
+                'links' => $this->apiLinks(),
             ]],
         ]);
+    }
+
+    /** @return array<string, array<string, string>> a global => "Manual" and "Demo" => their addresses */
+    private function apiLinks(): array
+    {
+        $docs = $this->urls->generate('app_docs');
+        $home = $this->urls->generate('app_home');
+        $links = [];
+        foreach (self::API_LINKS as $global => [$manual, $demo]) {
+            $links[$global] = ['Manual' => $docs.'#'.$manual] + (null !== $demo ? ['Demo' => $home.'#'.$demo] : []);
+        }
+
+        return $links;
     }
 
     /** GitHub at the commit built for the repository's files, the site's pages for the manual's. */

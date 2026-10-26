@@ -2,9 +2,12 @@
 
 namespace App\Controller;
 
+use App\Demo\Names;
+use App\Demo\Shop;
 use App\Docs\FlowDocs;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -20,11 +23,11 @@ final class SiteController extends AbstractController
     }
 
     #[Route('/', name: 'app_home', methods: ['GET'])]
-    public function home(): Response
+    public function home(Shop $shop): Response
     {
         $releases = $this->docs->changelog()->releases();
 
-        return $this->render('site/home.html.twig', ['latest' => $releases[0] ?? null]);
+        return $this->render('site/home.html.twig', ['latest' => $releases[0] ?? null, 'shop' => $shop->items()]);
     }
 
     #[Route('/docs/', name: 'app_docs', methods: ['GET'])]
@@ -54,21 +57,44 @@ final class SiteController extends AbstractController
         return JsonResponse::fromJsonString($this->docs->search()->toJson('en'));
     }
 
-    /** What the Ajaxer demo asks for: a static host answers GET only. */
-    #[Route('/demo/ajaxer.json', name: 'app_demo_ajaxer', methods: ['GET'])]
-    public function ajaxer(): JsonResponse
+    /**
+     * What the Ajaxer demo's channel asks for: a name, one of 64 static files (a static host answers
+     * GET only), the channel picking one at random each time.
+     */
+    #[Route('/demo/names/{n}.json', name: 'app_demo_name', requirements: ['n' => '\d+'], methods: ['GET'])]
+    public function name(int $n, Names $names): JsonResponse
     {
-        return new JsonResponse(['module' => 'Ajaxer', 'channel' => 'demo', 'message' => 'Answered by a static file: GET, throttled, its loader shown while it travels.']);
+        try {
+            return new JsonResponse($names->name($n) + ['channel' => 'names', 'of' => Names::COUNT]);
+        } catch (\OutOfRangeException) {
+            throw $this->createNotFoundException(\sprintf('Names are numbered 1 to %d.', Names::COUNT));
+        }
     }
 
     /**
-     * The pages the website-in-website demo browses inside its frame (FlowFrame): pages of the site,
-     * each with its [data-flow-frame-page] block - what the frame shows of them.
+     * The website in the website (FlowFrame): Kiln & Kettle, a pottery shop that does not exist - pages
+     * of this site, each with its [data-flow-frame-page] block, what the frame shows of them.
      */
-    #[Route('/demo/frame/{page}/', name: 'app_demo_frame', requirements: ['page' => 'departure|line|terminus'], methods: ['GET'])]
-    public function frame(string $page): Response
+    #[Route('/demo/frame/{page}/', name: 'app_demo_frame', requirements: ['page' => 'home|shop|journal|about|contact|sent'], methods: ['GET'])]
+    public function frame(string $page, Shop $shop): Response
     {
-        return $this->render('site/frame_page.html.twig', ['page' => $page]);
+        return $this->render('site/frame_page.html.twig', ['page' => $page, 'shop' => $shop->items(), 'item' => null]);
+    }
+
+    #[Route('/demo/frame/shop/{item}/', name: 'app_demo_frame_item', methods: ['GET'])]
+    public function frameItem(string $item, Shop $shop): Response
+    {
+        $found = $shop->item($item) ?? throw $this->createNotFoundException('No such pot in the shop.');
+
+        return $this->render('site/frame_page.html.twig', ['page' => 'item', 'shop' => $shop->items(), 'item' => $found]);
+    }
+
+    /** The frame's folder, and the demo's former pages (departure, line, terminus): the shop's home. */
+    #[Route('/demo/frame/', name: 'app_demo_frame_index', methods: ['GET'])]
+    #[Route('/demo/frame/{former}/', name: 'app_demo_frame_former', requirements: ['former' => 'departure|line|terminus'], methods: ['GET'])]
+    public function frameIndex(): RedirectResponse
+    {
+        return $this->redirectToRoute('app_demo_frame', ['page' => 'home'], Response::HTTP_MOVED_PERMANENTLY);
     }
 
     /** The page for unknown addresses: 404.html in the export. */

@@ -1,15 +1,101 @@
-{# The block of a frame demo page: what FlowFrame shows of it (page: departure, line, terminus). #}
-{% set pages = {
-    departure: {title: 'Departure', next: 'line', text: 'This page was fetched in the background and swapped into the frame. The page around it did not move: look at your address bar - and at the counter of the Navigation demo, which did not count it.'},
-    line: {title: 'On the line', next: 'terminus', text: 'Back and Forward in the frame go through the pages it showed, from memory, where you left them. Your browser\'s own Back is not the frame\'s: it would leave the showcase.'},
-    terminus: {title: 'Terminus', next: 'departure', text: 'A frame needs nothing of the server: these are three static pages of this site. Its links and forms are its own; Transparent, which navigates the site, never hears them.'}
-} %}
-{% set here = pages[page] %}
+{#
+ # A page of Kiln & Kettle, the pottery shop that does not exist - the website in the website
+ # (FlowFrame). Its [data-flow-frame-page] block is what the frame shows: the shop's own header and
+ # menu, then the page (home, shop, item, journal, about, contact, sent). Variables: page, shop (the
+ # items), item (on an item's page).
+ #}
+{% set menu = {home: 'Home', shop: 'Shop', journal: 'Journal', about: 'About', contact: 'Contact'} %}
+{% set current = page == 'item' ? 'shop' : (page == 'sent' ? 'contact' : page) %}
 <div data-flow-frame-page>
-    <article class="mini-page is-{{ page }}">
-        <p class="mini-stations">{% for name, p in pages %}<a href="{{ path('app_demo_frame', {page: name}) }}"{% if name == page %} aria-current="page"{% endif %}><span class="station"></span>{{ p.title }}</a>{% endfor %}</p>
-        <h1>{{ here.title }}</h1>
-        <p>{{ here.text }}</p>
-        <p><a class="button" href="{{ path('app_demo_frame', {page: here.next}) }}">Next stop: {{ pages[here.next].title }} →</a></p>
+<div class="kk is-{{ page }}">
+    <header class="kk-head">
+        <a class="kk-logo" href="{{ path('app_demo_frame', {page: 'home'}) }}" aria-label="Kiln & Kettle, home">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 12h14v9a7 7 0 0 1-7 7 7 7 0 0 1-7-7z" fill="currentColor"/><path d="M23 14h2a3 3 0 0 1 0 6h-2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M13 9c-2-2 2-3 0-5M18 9c-2-2 2-3 0-5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+            <span>Kiln <i>&amp;</i> Kettle</span>
+        </a>
+        <nav class="kk-menu" aria-label="Kiln & Kettle">
+            {% for key, label in menu %}<a href="{{ path('app_demo_frame', {page: key}) }}"{% if key == current %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        </nav>
+    </header>
+
+    {% if page == 'home' %}
+    <section class="kk-hero">
+        <img src="{{ asset('images/shop/hero.svg') }}" alt="" width="480" height="200">
+        <div>
+            <p class="kk-kicker">Small-batch stoneware, thrown by hand</p>
+            <h1>Pots for every day</h1>
+            <p>Mugs, bowls and teapots from a two-person workshop. Each one is a little different.</p>
+            <p><a class="kk-button" href="{{ path('app_demo_frame', {page: 'shop'}) }}">Visit the shop</a></p>
+        </div>
+    </section>
+    <h2 class="kk-title">This week at the workshop</h2>
+    <ul class="kk-grid">
+        {% for it in shop|slice(0, 3) %}
+        <li><a href="{{ path('app_demo_frame_item', {item: it.slug}) }}"><img src="{{ asset(it.image) }}" alt="" width="240" height="180" loading="lazy"><b>{{ it.name }}</b><span>€{{ it.price }}</span></a></li>
+        {% endfor %}
+    </ul>
+    <p class="kk-note"><a href="{{ path('app_demo_frame', {page: 'journal'}) }}">From the journal: the first firing of the autumn →</a></p>
+
+    {% elseif page == 'shop' %}
+    <h1>The shop</h1>
+    <p class="kk-lead">Six pieces, all in stock. Click one for its page.</p>
+    <ul class="kk-grid">
+        {% for it in shop %}
+        <li><a href="{{ path('app_demo_frame_item', {item: it.slug}) }}"><img src="{{ asset(it.image) }}" alt="" width="240" height="180" loading="lazy"><b>{{ it.name }}</b><span>€{{ it.price }} · {{ it.glaze }}</span></a></li>
+        {% endfor %}
+    </ul>
+
+    {% elseif page == 'item' %}
+    <p class="kk-crumbs"><a href="{{ path('app_demo_frame', {page: 'shop'}) }}">Shop</a> / {{ item.name }}</p>
+    <article class="kk-item">
+        <img src="{{ asset(item.image) }}" alt="{{ item.name }}, {{ item.glaze|lower }} glaze" width="240" height="180">
+        <div>
+            <h1>{{ item.name }}</h1>
+            <p class="kk-price">€{{ item.price }}</p>
+            <p>{{ item.text }}</p>
+            <dl class="kk-facts"><div><dt>Glaze</dt><dd>{{ item.glaze }}</dd></div><div><dt>Clay</dt><dd>Stoneware</dd></div><div><dt>Care</dt><dd>Dishwasher safe</dd></div></dl>
+            <p><a class="kk-button" href="{{ path('app_demo_frame', {page: 'contact'}) }}">Ask about this piece</a></p>
+        </div>
     </article>
+    {% set others = shop|filter(o => o.slug != item.slug)|slice(0, 3) %}
+    <h2 class="kk-title">You may also like</h2>
+    <ul class="kk-grid is-small">
+        {% for it in others %}<li><a href="{{ path('app_demo_frame_item', {item: it.slug}) }}"><img src="{{ asset(it.image) }}" alt="" width="240" height="180" loading="lazy"><b>{{ it.name }}</b></a></li>{% endfor %}
+    </ul>
+
+    {% elseif page == 'journal' %}
+    <h1>Journal</h1>
+    <p class="kk-slow" role="note">A slow page: the showcase holds its answer 1.6 s (a static host answers at once), long enough to see the frame's loading bar.</p>
+    <img class="kk-wide" src="{{ asset('images/shop/journal.svg') }}" alt="" width="480" height="200" loading="lazy">
+    <h2 class="kk-title">The first firing of the autumn</h2>
+    <p>The kiln took eleven hours to reach temperature and two days to cool. Forty pieces went in; thirty-seven came out the way we hoped. The other three are on our own shelf now.</p>
+    <p>Scroll this page: the frame has its own scroll, the page around it does not move.</p>
+    <h2 class="kk-title">Glazes we are testing</h2>
+    <ul class="kk-list"><li>A deeper honey, with more iron</li><li>A celadon that breaks to white on edges</li><li>A matte chalk for the plates</li></ul>
+    <p>Next firing: in three weeks. The shop is updated the day after.</p>
+
+    {% elseif page == 'about' %}
+    <h1>About the workshop</h1>
+    <img class="kk-wide" src="{{ asset('images/shop/kiln.svg') }}" alt="" width="480" height="200" loading="lazy">
+    <p>Two potters, one wheel each, a gas kiln in the yard. Kiln &amp; Kettle is a made-up shop: it exists only in this frame, to show a whole website browsed inside another page.</p>
+    <p>Every page here is a real page of the flowjs site, fetched in the background and swapped into the frame by FlowFrame. Its pictures are drawings, its prices fiction.</p>
+
+    {% elseif page == 'contact' %}
+    <h1>Contact</h1>
+    <p class="kk-lead">A question about a piece, an order, a visit? Write to us.</p>
+    <form class="kk-form" action="{{ path('app_demo_frame', {page: 'sent'}) }}" method="get">
+        <label>Your name <input name="name" autocomplete="name" required></label>
+        <label>Your email <input name="email" type="email" autocomplete="email" required></label>
+        <label>Your message <textarea name="message" rows="3" required></textarea></label>
+        <p><button class="kk-button" type="submit">Send</button></p>
+    </form>
+
+    {% elseif page == 'sent' %}
+    <h1>Thank you</h1>
+    <p class="kk-lead">Your message is on its way… in a way: this is a static answer, nothing was sent or kept.</p>
+    <p>The form was submitted inside the frame - a GET to this page, fetched in the background like a link. <a href="{{ path('app_demo_frame', {page: 'home'}) }}">Back to the shop's home</a>.</p>
+    {% endif %}
+
+    <footer class="kk-foot">Kiln &amp; Kettle · a shop that does not exist · <a href="{{ path('app_demo_frame', {page: 'about'}) }}">about</a></footer>
+</div>
 </div>
