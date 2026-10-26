@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  StickyScenes with prefers-reduced-motion (matchMedia answering so, before the module loads): a static end state - progress 1, no length, nothing scrubbed.
+  StickyScenes (1.6): a scene's stage pinned while the page scrolls through its length, its progress
+  0 to 1 in --scene-progress and in scene:progress, its steps, both ways; an image sequence drawn with
+  the frame of the progress; a scene that is a stop (StickyStops): the scroll rests at its start and is
+  free across it, never pulled out half-way.
+-->
+<html>
+<head><meta charset="utf-8"><title>scenes</title>
+<style>
+    body { margin: 0; font: 14px sans-serif; }
+    .before, .after { height: 900px; background: #eee; }
+    .sticky-scene { position: relative; height: calc(100vh + var(--scene-length, 100vh)); }
+    .sticky-scene-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; background: #ccd; }
+    .sticky-scene[data-scene-reduced] { height: auto; }
+    .sticky-scene[data-scene-reduced] .sticky-scene-stage { position: relative; }
+    #box { width: 100px; height: 100px; background: #333; transform: translateX(calc(var(--scene-progress, 0) * 300px)); }
+</style></head>
+<body>
+<section class="before sticky-stop" id="top">before</section>
+<section class="sticky-scene sticky-stop" id="scene" data-scene-length="1000px" data-scene-steps="0.25, 0.5, 0.75">
+    <div class="sticky-scene-stage"><div id="box"></div><canvas id="seq" width="10" height="10"></canvas></div>
+</section>
+<section class="after sticky-stop" id="after">after</section>
+<pre id="result">pending</pre>
+<script src="harness.js"></script>
+<script>window.matchMedia = (function (real) { return function (q) { return /reduced-motion/.test(q) ? { matches: true, media: q, addEventListener: function () {}, removeEventListener: function () {} } : real.call(window, q); }; })(window.matchMedia);</script>
+<script src="../src/js/core.js"></script>
+<script>
+    // Five frames as pictures (data: SVGs, each a colour), named in the canvas before the module reads it.
+    (function () {
+        var colours = ['#f00', '#f80', '#ff0', '#0f0', '#00f'];
+        document.getElementById('seq').setAttribute('data-scene-frames-list', JSON.stringify(colours.map(function (c) {
+            return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="' + c + '"/></svg>');
+        })));
+    })();
+</script>
+<script src="../src/js/stops.js"></script>
+<script src="../src/js/scenes.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var scene = document.getElementById('scene');
+        await H.after(150);
+        H.check(scene.hasAttribute('data-scene-reduced') && scene.dataset.sceneState === 'reduced', 'prefers-reduced-motion: the scene is reduced');
+        H.check(scene.style.getPropertyValue('--scene-progress') === '1', 'its end, at once: progress 1', scene.style.cssText);
+        H.check(Math.round(scene.getBoundingClientRect().height) === innerHeight, 'no length: the scene is its stage alone', scene.getBoundingClientRect().height);
+        H.scroll(scene.offsetTop + 200);
+        await H.after(60);
+        H.check(scene.style.getPropertyValue('--scene-progress') === '1', 'the scroll moves nothing');
+        H.done();
+    })();
+</script>
+</body>
+</html>

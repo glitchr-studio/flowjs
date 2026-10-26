@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.6.0 - 2026-10-26
+
+- **navigation** - the progress bar never blinks. It had been drawn for as
+  long as `html.loading` was set, a few frames on a page from the cache or a
+  static host: a flash at the top of the screen at each click (the flowjs
+  site on GitHub Pages). A navigation now shows it only once it has lasted
+  `progress_bar_delay` (200ms), keeps it at least `progress_bar_min` (400ms),
+  then finishes it - filled, faded over `progress_bar_finish` (250ms) - on
+  classes of its own (`html.progress-bar-shown`, `progress-bar-done`), and
+  says each step in `transparent:progress`. Its look is custom properties
+  (`--transparent-bar-height`, `-color`, `-background`, `-size`, `-duration`,
+  `-done`, `-z`): a rainbow in docs/navigation.md. The cursor's `progress`
+  follows the same timing. tests/navigation-progress.html (a fast navigation:
+  no bar at any moment; a slow one: shown after the delay, at least the
+  minimum, finished, gone; once shown never shorter than the minimum).
+- **navigation** - a website in the website: `FlowFrame` (src/js/frame.js,
+  in the navigation entry, also `Transparent.frame`; no jQuery). A frame of
+  the page (`[data-flow-frame]`) whose links and forms load their page in the
+  background and swap its block into the frame alone; its own history (back,
+  forward, the address field, the scroll given back) - the window's is not
+  touched, so the browser's Back leaves the page that holds it; Transparent
+  never hears its clicks; `flow:frame:load`, `flow:frame:error`,
+  `.flow-frame-loading` on the progress bar's timing. Inline, needing nothing
+  of the server, unlike `nest`. tests/frame.html.
+- **scenes** - a new module, `StickyScenes` (src/js/scenes.js, entry
+  `@glitchr/flowjs/scenes`, stylesheet css/scenes.scss; no jQuery): a section
+  the page scrolls through while its stage stays pinned, its progress 0 to 1
+  in `--scene-progress` and in `scene:progress`, steps
+  (`--scene-step`, `--scene-step-progress`), an image sequence on a canvas;
+  prefers-reduced-motion shows its end, static; a scene that is a stop is a
+  tall stop, free across, its keys a screen at a time; the progress is read
+  400ms past the last scroll event for iOS's late positions. docs/scenes.md.
+  tests/scenes.html, tests/scenes-reduced.html.
+
 ## 1.5.4 - 2026-10-26
 
 - **stops** - a glide told its position late is still ours. iOS Safari

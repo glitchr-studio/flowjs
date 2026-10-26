@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  The progress bar's timing (1.6): a navigation that completes within progress_bar_delay shows no bar
+  at all (no blink on a fast swap); a slow one shows it once the delay has passed, keeps it at least
+  progress_bar_min, then finishes it (progress-bar-done) before it goes; transparent:progress tells
+  each step. The classes' timeline is recorded by a MutationObserver on <html>.
+-->
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="/tests/site.css"><title>progress</title></head>
+<body>
+<div id="page" data-layout="main"><h1>Start</h1><a id="to-one" href="/site/page/one">one</a> <a id="to-slow" href="/site/slow?ms=700">slow</a></div>
+<div id="loader"></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/transparent.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var html = document.documentElement;
+        var timeline = [];
+        var t0 = performance.now();
+        new MutationObserver(function () {
+            var shown = html.classList.contains('progress-bar-shown'), done = html.classList.contains('progress-bar-done'), loading = html.classList.contains('loading');
+            var last = timeline[timeline.length - 1];
+            var entry = { t: Math.round(performance.now() - t0), shown: shown, done: done, loading: loading };
+            if (!last || last.shown !== shown || last.done !== done || last.loading !== loading) timeline.push(entry);
+        }).observe(html, { attributes: true, attributeFilter: ['class'] });
+        var told = [];
+        window.addEventListener('transparent:progress', function (e) { told.push(e.detail.state); });
+        function loaded() {
+            return new Promise(function (resolve) { window.addEventListener('transparent:load', function () { resolve(); }, { once: true }); });
+        }
+        async function click(id) {
+            var next = loaded();
+            t0 = performance.now(); timeline = []; told = [];
+            document.getElementById(id).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+            await next;
+        }
+
+        await new Promise(function (resolve) { window.addEventListener('load', resolve, { once: true }); });
+        Transparent.ready({ identifier: '#page', progress_bar_delay: 150, progress_bar_min: 300, progress_bar_finish: 100 });
+        await H.after(80);
+        H.check(html.classList.contains('progress-bar-native') && !html.classList.contains('progress-bar-shown'), 'ready: the bar is on, not shown');
+
+        // A fast navigation (the test server answers at once): no bar at any moment.
+        await click('to-one');
+        await H.after(400);
+        H.check(timeline.some(function (e) { return e.loading; }), 'the navigation was loading for a moment', JSON.stringify(timeline));
+        H.check(!timeline.some(function (e) { return e.shown; }) && told.length === 0, 'a fast navigation shows no bar at all', JSON.stringify(timeline));
+
+        // A slow one (700ms): shown after the delay, at least the minimum, then finished, then gone.
+        var back = loaded();
+        history.back();
+        await back;
+        await H.after(300);
+        await click('to-slow');
+        await H.after(600);
+        var shownAt = (timeline.filter(function (e) { return e.shown && !e.done; })[0] || {}).t;
+        var doneAt = (timeline.filter(function (e) { return e.done; })[0] || {}).t;
+        var goneAt = (timeline.filter(function (e) { return !e.shown && e.t > (doneAt || 0); })[0] || {}).t;
+        H.check(shownAt >= 140 && shownAt < 450, 'a slow navigation shows the bar once the delay has passed', shownAt + ' ' + JSON.stringify(timeline));
+        H.check(doneAt !== undefined && doneAt - shownAt >= 295, 'shown at least the minimum, then finished', (doneAt - shownAt) + 'ms ' + JSON.stringify(timeline));
+        H.check(goneAt !== undefined && goneAt - doneAt >= 90, 'the finished bar fades before it goes', (goneAt - doneAt) + 'ms');
+        H.check(told.join(',') === 'shown,done,hidden', 'transparent:progress tells each step', told.join(','));
+        H.check(getComputedStyle(document.body, '::before').content === 'none', 'no bar once it is gone');
+
+        // Shown, a short load still keeps the bar its minimum: a load of 200ms with a 150ms delay is never a 50ms blink.
+        Transparent.configure({ progress_bar_delay: 0, progress_bar_min: 250 });
+        var minBack = loaded();
+        t0 = performance.now(); timeline = []; told = [];
+        history.back();
+        await minBack;
+        await H.after(500);
+        var s = (timeline.filter(function (e) { return e.shown && !e.done; })[0] || {}).t;
+        var d = (timeline.filter(function (e) { return e.done; })[0] || {}).t;
+        H.check(s === undefined || (d !== undefined && d - s >= 245), 'once shown, never shorter than the minimum', JSON.stringify(timeline));
+        H.done();
+    })();
+</script>
+</body>
+</html>

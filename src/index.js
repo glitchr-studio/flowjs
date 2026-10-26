@@ -1,12 +1,15 @@
-// The whole library: the navigation, the sticky effects, the scroll stops, the
-// sortable lists, the AJAX channels and the cookies, with their stylesheets (the
+// The whole library: the navigation (and its frames), the sticky effects, the scroll
+// stops, the scroll-driven scenes, the sortable lists, the AJAX channels and the
+// cookies, with their stylesheets (the
 // cookie banner has none of its own: css/cookie.scss is there to be asked for).
 // Each is also an entry of its own (navigation.js, sticky.js, stops.js,
-// sortable.js, ajaxer.js, cookie.js), the core first.
+// scenes.js, sortable.js, ajaxer.js, cookie.js), the core first.
 import './js/core.js';
 import './js/transparent.js';
+import './js/frame.js';
 import './js/sticky.js';
 import './js/stops.js';
+import './js/scenes.js';
 import './js/sortable.js';
 import './js/ajaxer.js';
 import './js/cookie.js';

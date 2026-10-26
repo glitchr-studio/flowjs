@@ -849,25 +849,55 @@ html.nest-loading body::before {
    own bar during a fresh nest open, and would fire for the very first
    page load too where `html.first` is also present and nothing should
    show yet) - gated to fire only once the app is past its first paint. */
-html.progress-bar-native.ready:not(.first).loading body::before {
+/* Since 1.6 the bar has its own classes (transparent.js' ProgressBar): a
+   navigation that completes within progress_bar_delay shows nothing,
+   a longer one shows the bar (html.progress-bar-shown) at least
+   progress_bar_min, then finishes it (html.progress-bar-done: filled and
+   faded over progress_bar_finish) - never a blink. Its look is these
+   custom properties, on :root or html:
+
+     --transparent-bar-height       3px
+     --transparent-bar-color        #2563eb
+     --transparent-bar-background   a streak of the colour: linear-gradient(90deg, transparent, color, transparent)
+     --transparent-bar-size         50% 100% (the streak's share of the width)
+     --transparent-bar-duration     1s (one sweep)
+     --transparent-bar-done         the finished bar's fill (the colour)
+     --transparent-bar-z            100001
+
+   A rainbow:  --transparent-bar-background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #5ac8fa, #007aff, #af52de, #ff3b30);
+               --transparent-bar-size: 200% 100%;  */
+html.progress-bar-native.progress-bar-shown body::before {
 	content: '';
 	position: fixed;
 	top: 0; left: 0;
-	height: 3px;
+	height: var(--transparent-bar-height, 3px);
 	width: 100%;
-	z-index: 100001;
-	background: linear-gradient(90deg, transparent, #2563eb, transparent);
-	background-size: 50% 100%;
-	background-repeat: no-repeat;
-	animation: transparent-nest-bar 1s linear infinite;
+	z-index: var(--transparent-bar-z, 100001);
+	pointer-events: none;
+	background: var(--transparent-bar-background, linear-gradient(90deg, transparent, var(--transparent-bar-color, #2563eb), transparent));
+	background-size: var(--transparent-bar-size, 50% 100%);
+	background-repeat: repeat-y;
+	animation: transparent-bar var(--transparent-bar-duration, 1s) linear infinite;
+	transition: opacity var(--transparent-bar-finish, .25s) ease;
 }
-/* Same gap as the bar above, for the cursor: the nested overlay already
-   gets cursor:progress via .nest-loading (see the top of this block), but
-   a plain in-page navigation (link click, form submit) left the pointer
-   looking exactly like it does when nothing is happening - the only
-   feedback was the 3px top bar, easy to miss if your eyes are elsewhere. */
-html.progress-bar-native.ready:not(.first).loading,
-html.progress-bar-native.ready:not(.first).loading body {
+html.progress-bar-native.progress-bar-done body::before {
+	background: var(--transparent-bar-done, var(--transparent-bar-color, #2563eb));
+	background-size: 100% 100%;
+	animation: none;
+	opacity: 0;
+}
+@keyframes transparent-bar {
+	from { background-position: -100% 0; }
+	to   { background-position: 200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+	html.progress-bar-native.progress-bar-shown body::before { animation-duration: 3s; }
+}
+/* Same gap as the bar above, for the cursor: a plain in-page navigation
+   (link click, form submit) left the pointer looking as it does when
+   nothing happens - on the bar's timing too (no flicker of the cursor). */
+html.progress-bar-native.progress-bar-shown:not(.progress-bar-done),
+html.progress-bar-native.progress-bar-shown:not(.progress-bar-done) body {
 	cursor: progress;
 }
 

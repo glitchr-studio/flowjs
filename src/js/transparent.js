@@ -217,6 +217,16 @@
         // different indicator (e.g. nprogress) instead, matching how the
         // public site's app-defer.js already opts out.
         "progress_bar": true,
+        // The bar does not blink (1.6). A navigation that completes within
+        // progress_bar_delay (ms) shows no bar at all - a page from the cache,
+        // a static host a few dozen ms away; one that takes longer shows it
+        // (html.progress-bar-shown) for at least progress_bar_min ms, then
+        // finishes it over progress_bar_finish ms (html.progress-bar-done:
+        // filled, faded) before it goes. Its look is CSS: the custom
+        // properties --transparent-bar-* (docs/navigation.md).
+        "progress_bar_delay": 200,
+        "progress_bar_min": 400,
+        "progress_bar_finish": 250,
 
         // confirm() prompt shown before ESC closes an open nest overlay -
         // overridable via Transparent.ready({nest_esc_confirm: '...'}) for
@@ -905,9 +915,71 @@
         // just the initial ready()) in case a consumer flips it at runtime.
         var progressBarEnabled = Settings["progress_bar"] !== false && Settings["progress_bar"] !== "off";
         Transparent.html.toggleClass("progress-bar-native", progressBarEnabled);
+        ProgressBar.watch();
 
         return this;
     };
+
+    // ── The progress bar's timing (1.6) ──────────────────────────────────
+    // html.loading spans every navigation, a cached one included: the bar
+    // drawn on it blinked at each fast swap. The bar now has classes of its
+    // own, set here by watching html.loading: progress-bar-shown once a load
+    // has lasted progress_bar_delay, kept at least progress_bar_min, then
+    // progress-bar-done for progress_bar_finish (the bar filled and faded),
+    // then nothing. A load that ends before the delay leaves no trace.
+    // "transparent:progress" (detail.state: "shown", "done", "hidden") lets a
+    // site drive an indicator of its own on the same timing.
+    var ProgressBar = Transparent.progressBar = (function () {
+        var observer = null, timer = null, shownAt = 0, loading = false, state = 'hidden';
+        var html = document.documentElement;
+        var ms = function (key, fallback) { var v = parseFloat(Settings[key]); return isNaN(v) || v < 0 ? fallback : v; };
+        function set(next) {
+            if (state === next) return;
+            state = next;
+            html.classList.toggle('progress-bar-shown', next === 'shown' || next === 'done');
+            html.classList.toggle('progress-bar-done', next === 'done');
+            dispatchEvent(new CustomEvent('transparent:progress', { detail: { state: next } }));
+        }
+        function start() {
+            clearTimeout(timer);
+            if (state === 'done') set('hidden');
+            if (state === 'shown') return;
+            timer = setTimeout(function () {
+                timer = null;
+                if (loading) { shownAt = Date.now(); set('shown'); }
+            }, ms('progress_bar_delay', 200));
+        }
+        function end() {
+            clearTimeout(timer);
+            timer = null;
+            if (state !== 'shown') return;
+            var left = Math.max(0, ms('progress_bar_min', 400) - (Date.now() - shownAt));
+            timer = setTimeout(function () {
+                if (loading) return;
+                set('done');
+                timer = setTimeout(function () { timer = null; if (!loading) set('hidden'); }, ms('progress_bar_finish', 250));
+            }, left);
+        }
+        function check() {
+            // The first page's own load is not a navigation; neither is a page not yet ready.
+            var now = html.classList.contains('loading') && !html.classList.contains('first');
+            if (now === loading) return;
+            loading = now;
+            if (loading) start(); else end();
+        }
+        return {
+            watch: function () {
+                if (observer || typeof MutationObserver === 'undefined') return;
+                // Kept across a swap that rewrites <html>'s classes: the timing is ours.
+                Persist.add('progress-bar-shown');
+                Persist.add('progress-bar-done');
+                observer = new MutationObserver(check);
+                observer.observe(html, { attributes: true, attributeFilter: ['class'] });
+                check();
+            },
+            state: function () { return state; }
+        };
+    })();
 
     Transparent.ready = function (options = {}) {
 
