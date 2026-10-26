@@ -38,7 +38,7 @@
     var api = factory(root, core);
     if (typeof module === 'object' && module.exports) module.exports = api;
     root.FlowFrame = api;
-    core.frame = api;
+    core.frames = api;   // not core.frame: that is the core's own animation frame
     if (root.Transparent) root.Transparent.frame = api;
 
 })(typeof window !== 'undefined' ? window : this, function (window, Flow) {

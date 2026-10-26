@@ -128,7 +128,7 @@
     Sticky.parseDuration  = Flow.parseDuration;
     Sticky.remToPixel     = Flow.remToPixel;
     Sticky.emToPixel      = Flow.emToPixel;
-    Sticky.percentToPixel = function(p, el) { return parseFloat(p) * $(el).outerWidth(); };
+    Sticky.percentToPixel = function(p, el) { return parseFloat(p) / 100 * $(el).outerWidth(); };
     Sticky.parseToPixel   = Flow.parseToPixel;
     Sticky.getScrollPadding = function(el = document.documentElement) {
         return Flow.scrollPadding(Flow.closestScrollable(typeof el === "string" ? $(el)[0] : el));
@@ -674,7 +674,8 @@
             var dX = touchobj.pageX - x0 // get total dist traveled by finger while in contact with surface
             var dT = new Date().getTime() - t0 // get time elapsed
 
-            var trigger = (dT <= parseInt(Sticky.get("swipe_timegate")) && Math.abs(touchobj.pageY - y0) <= 100);
+            // "1s" is a second (up to 1.5 parseInt read it as 1 ms: no swipe ever triggered with the default).
+            var trigger = (dT <= Flow.toMilliseconds(Sticky.get("swipe_timegate")) && Math.abs(touchobj.pageY - y0) <= 100);
 
             var swipeDirection = 0;
             if(trigger) swipeDirection = Math.abs(dX) >= parseInt(Sticky.get("swipe_threshold")) ? (dX > 0 ? 1 : -1) : 0;
@@ -1921,7 +1922,8 @@
 
         $(window).off('wheel.sticky');
         Sticky.unlisten(window);
-        $(window).off("hashchange");
+        // No $(window).off("hashchange") here any more: the module binds no jQuery hashchange handler of
+        // its own, and that call dropped the site's at the first navigation (beforeunload comes before each swap).
         $('a[href^="#"]').off('click.sticky');
     });
 

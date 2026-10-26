@@ -35,7 +35,8 @@
         await H.after(50);
         var frame = FlowFrame.get($('frame'));
         FlowFrame.attach($('frame'), {}).options.select = '#page';
-        H.check(!!frame && Transparent.frame === FlowFrame, 'the frame is attached by itself, Transparent.frame is the module');
+        H.check(!!frame && Transparent.frame === FlowFrame && Flow.frames === FlowFrame, 'the frame is attached by itself; Transparent.frame and Flow.frames are the module');
+        H.check(typeof Flow.frame === 'function', 'the core\'s own Flow.frame (its animation frame) is left alone');
         H.check($('address').value === '/site/page/one' && $('back').disabled && $('forward').disabled, 'the chrome says the first page; nothing to go back to', $('address').value);
 
         var start = location.href, length = history.length;
