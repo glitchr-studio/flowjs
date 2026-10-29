@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Flow.scrollTo: at a speed (px/s) a movement takes its way to go over the speed, up as down; the
+  reader's wheel, finger or press on an element scroller stops that scroller's movement with no
+  listener of the page's own (Flow.onInterrupt(el, Flow.release) is not needed), and the listener
+  goes with the movement. Opened by tests/run.mjs; verdict in #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>core scroll</title>
+<style>
+    body { margin: 0; }
+    #tall { height: 6000px; }
+    #box { position: fixed; top: 0; left: 0; height: 100px; width: 100px; overflow: auto; }
+    #box > div { height: 4000px; }
+</style>
+</head>
+<body>
+<div id="tall"></div>
+<div id="box"><div></div></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var timed = function (scroller, dict) {
+            return new Promise(function (resolve) {
+                var began = performance.now();
+                Flow.scrollTo(scroller, dict, function (outcome) { resolve({ ms: performance.now() - began, outcome: outcome }); });
+            });
+        };
+
+        // Up, at 1000 px/s, from 3000 to 2000: a second, not three.
+        window.scrollTo({ top: 3000, behavior: 'instant' });
+        await H.after(50);
+        var up = await timed(window, { top: 2000, speed: 1000 });
+        H.check(up.ms > 700 && up.ms < 1500 && Math.round(window.scrollY) === 2000, 'up 1000 px at 1000 px/s takes about a second', Math.round(up.ms) + 'ms, at ' + Math.round(window.scrollY));
+        var down = await timed(window, { top: 3000, speed: 1000 });
+        H.check(down.ms > 700 && down.ms < 1500, 'down 1000 px at 1000 px/s too', Math.round(down.ms) + 'ms');
+        var zero = await timed(window, { top: 0, speed: 3000 });
+        H.check(zero.ms > 700 && zero.ms < 1500 && window.scrollY === 0, 'up to the top, 3000 px at 3000 px/s', Math.round(zero.ms) + 'ms');
+
+        // An element scroller: a wheel on it stops its movement.
+        var box = document.getElementById('box');
+        var before = Object.keys(Harness.listeners(/^div#box /)).length;
+        var told = null;
+        Flow.scrollTo(box, { top: 3000, duration: '1s' }, function (outcome) { told = outcome; });
+        await H.after(150);
+        H.check(Object.keys(Harness.listeners(/^div#box (wheel|touchstart|mousedown)$/)).length === 3, 'the movement listens to the reader on its scroller', JSON.stringify(Harness.listeners(/^div#box /)));
+        box.dispatchEvent(new WheelEvent('wheel', { deltaY: 10, bubbles: true }));
+        await H.after(50);
+        var at = box.scrollTop;
+        H.check(told && told.reason === 'interrupted' && told.completed === false, 'a wheel on an element scroller stops its movement: interrupted', JSON.stringify(told));
+        await H.after(300);
+        H.check(Math.abs(box.scrollTop - at) < 2 && box.scrollTop < 3000, 'where the reader took it', at + ' -> ' + box.scrollTop);
+        H.check(Object.keys(Harness.listeners(/^div#box (wheel|touchstart|mousedown)$/)).length === before, 'and the listeners went with the movement', JSON.stringify(Harness.listeners(/^div#box /)));
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

@@ -108,6 +108,7 @@
             return;
         }
 
+        this.forgetPress();
         this.pendingItem = item;
         this.pendingPointerId = e.pointerId;
         this.pendingStartX = e.clientX;
@@ -117,6 +118,11 @@
             if (moveEvent.pointerId !== this.pendingPointerId) {
                 return;
             }
+            // no button held any more: the press ended where nothing told us
+            if (moveEvent.buttons === 0) {
+                this.forgetPress();
+                return;
+            }
             var dx = moveEvent.clientX - this.pendingStartX;
             var dy = moveEvent.clientY - this.pendingStartY;
             if (Math.sqrt(dx * dx + dy * dy) >= this.options.dragThreshold) {
@@ -124,18 +130,36 @@
             }
         }.bind(this));
 
-        this.container.addEventListener('pointerup', this.onPendingUp = function () {
-            this.container.removeEventListener('pointermove', this.onPendingMove);
-            this.container.removeEventListener('pointerup', this.onPendingUp);
-        }.bind(this), { once: true });
+        // A press released before the threshold is a click: forgotten wherever it ends - on the
+        // list, outside it, or cancelled by the browser. (Only a pointerup on the container forgot
+        // it: released a few px out, the next move of the pointer over the list dragged with no
+        // button held.)
+        this.onPendingUp = function (upEvent) {
+            if (upEvent.pointerId === this.pendingPointerId) this.forgetPress();
+        }.bind(this);
+        document.addEventListener('pointerup', this.onPendingUp, true);
+        document.addEventListener('pointercancel', this.onPendingUp, true);
+    };
+
+    /** The press waiting for the drag threshold, forgotten: its listeners removed. */
+    StickySortable.prototype.forgetPress = function () {
+        if (this.onPendingMove) this.container.removeEventListener('pointermove', this.onPendingMove);
+        if (this.onPendingUp) {
+            document.removeEventListener('pointerup', this.onPendingUp, true);
+            document.removeEventListener('pointercancel', this.onPendingUp, true);
+        }
+        this.onPendingMove = null;
+        this.onPendingUp = null;
+        this.pendingItem = null;
     };
 
     StickySortable.prototype.beginDrag = function (item, pointerId, e) {
-        this.container.removeEventListener('pointermove', this.onPendingMove);
+        this.forgetPress();
 
         this.dragging = item;
         this.pointerId = pointerId;
         this.startIndex = this.items().indexOf(item);
+        this.startNext = item.nextSibling;
 
         item.setPointerCapture(pointerId);
         item.classList.add(this.options.draggingClass);
@@ -162,6 +186,7 @@
 
         document.addEventListener('pointermove', this.onPointerMove);
         document.addEventListener('pointerup', this.onPointerUp);
+        document.addEventListener('pointercancel', this.onPointerUp);
     };
 
     // axis:'y' locks left to wherever the drag started (a single-column
@@ -459,7 +484,11 @@
         item.style.zIndex = '';
         item.style.pointerEvents = '';
 
-        this.container.insertBefore(item, this.placeholder);
+        // A drag the browser cancelled (pointercancel: the page took the gesture, a call...) puts
+        // the item back where it was, and tells nothing.
+        var cancelled = e.type === 'pointercancel';
+        if (cancelled) this.container.insertBefore(item, this.startNext && this.startNext.parentNode === this.container ? this.startNext : null);
+        else this.container.insertBefore(item, this.placeholder);
         this.placeholder.remove();
         this.placeholder = null;
 
@@ -471,11 +500,17 @@
 
         document.removeEventListener('pointermove', this.onPointerMove);
         document.removeEventListener('pointerup', this.onPointerUp);
+        document.removeEventListener('pointercancel', this.onPointerUp);
 
         var mergeTarget = this.mergeTarget;
         if (mergeTarget) {
             mergeTarget.classList.remove(this.options.mergeTargetClass);
             this.mergeTarget = null;
+        }
+        if (cancelled) {
+            this.dragging = null;
+            this.pointerId = null;
+            return;
         }
 
         var newIndex = this.items().indexOf(item);

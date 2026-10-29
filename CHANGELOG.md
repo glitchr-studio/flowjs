@@ -49,12 +49,41 @@
   was 5 ms).
 
   tests/navigation-swap.html, tests/navigation-options.html, tests/navigation-rescue.html.
+- **core** - `Flow.scrollTo` at a `speed`: a movement up (or left) to anywhere but 0 took the time
+  of the whole position (3000 -> 2000 at 1000 px/s: 3 s); each axis now takes its way to go over
+  the speed, up as down.
+- **core** - the reader's wheel, finger or press on an element scroller stops its
+  `Flow.scrollTo` movement, as on the page: the movement listens on its scroller for its own time.
+  Only the window was heard, so an element's movement went on under a wheel (ended "arrived")
+  unless a script had registered `Flow.onInterrupt(el, Flow.release)`.
+- **sortable** - a press released before the drag threshold is forgotten wherever it ends: a
+  `pointerup` anywhere in the document, a `pointercancel`, a move with no button held. Only a
+  `pointerup` on the container forgot it: released a few px outside the list, the next move of the
+  pointer over it dragged with no button held. A drag the browser cancels (`pointercancel`) puts
+  the item back where it was, without `onChange` or `onMerge`.
+- **sticky** - `scrolllock`: during a held way to a magnet the wheel and the finger move nothing,
+  through real `wheel` (or `mousewheel`) and `touchmove` listeners, not passive, on the window,
+  taken off when the page is given back; `Sticky.allowScrolling()` is false meanwhile. The names
+  were jQuery-style namespaced ones (`wheel.preventDefault`) that the native `addEventListener`
+  took for events that never fire, `enableScroll()` and `disableScroll()` were inverted, a
+  `DOMMouseScroll` listener was added at each way's end and never removed, and `allowScrolling()`
+  always answered true. The keys are left alone (the page's overflow is hidden meanwhile, and a
+  magnet key past the last magnet is the browser's). Written against the DOM spec and checked in
+  Chromium; not checked in Firefox.
+
+  tests/core-scroll.html, tests/sortable-press.html, tests/sticky-scrolllock.html; Flow.version
+  checked against package.json in tests/units-and-listeners.html.
 
 ### Removed
 
 - **ajaxer** - `Ajaxer.ready(list, options)` no longer stores a non-empty `list` under
   `Ajaxer.settings.list`, which nothing read. The parameter stays, not read, so that a call
   written `ready(list, options)` keeps its options.
+- **sticky** - the options `tick` (`"1ms"`) and `scrollsnap_start` (`"start"`) are no longer
+  declared in `Sticky.settings` (public API): nothing read `tick`, and `scrollsnap_start` was read
+  into a variable only printed with `debug` (the snap always meets a magnet by its top under the
+  scroll padding). A value given for them is stored as any unknown key and read by nothing, as
+  before.
 
 ## 1.6.0 - 2026-10-26
 

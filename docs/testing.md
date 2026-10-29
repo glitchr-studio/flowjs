@@ -62,6 +62,7 @@ module costs), and gives the waits a scroll test needs.
 | `ajaxer.html` | a channel sends through `$.ajax` and calls back with the JSON; the loader and the `ajaxer-success` / `ajaxer-error` classes; throttle, debounce, loader timings, `query_limit`, `abort()` |
 | `ajaxer-channels.html` | a channel without a url sends nothing; without a target, `Ajaxer.send()` sends and calls back once, and `.call(element)` marks that element; `retry_limit` counts the tries after a failure (500: retried, 404: not), a retry is in the channel's list; a value set without a name is every channel's default (`url`, `target`, `loader_container`, `query_limit`); `ready(list)` stores no list |
 | `cohabitation.html` | the navigation and the stops together: a scroll the navigation makes rests where it was put, the reader's own still settles; the listeners after a swap |
+| `core-scroll.html` | `Flow.scrollTo` at a speed takes its way to go over the speed, up as down; a wheel on an element scroller stops its movement, and the listener goes with it |
 | `cookie.html` | Cookie without its banner: what @glitchr/cookie 1.0.53 did, under the same names; categories, states, defaults, storage |
 | `cookie-banner.html` | the banner: shown on a first visit, labelled, accept and refuse, the detailed section, the switches |
 | `cookie-countdown.html` | the countdown and its actions (`default`, `accept`, `refuse`, `none`) |
@@ -70,12 +71,17 @@ module costs), and gives the waits a scroll test needs.
 | `navigation.html` | a link swaps the block in place, with its title, address, history entry and events; the classes of `<html>`, the head, a canvas; anchors |
 | `navigation-back.html` | Back to a long page that is not whole yet when its position is given back |
 | `navigation-nest.html` | the nest: a panel over the page, its own history, closing it |
+| `navigation-swap.html` | a script of the swapped block runs once, as on a page load (its `var` a global, a module as a module); a link with `download` is left to the browser; `<previous>-to-<next>` stays on `<html>` while the new block comes in |
+| `navigation-options.html` | `lazyload: false` (a picture coming into view, or brought by a swap, keeps its `data-src`); `skip_transition_for_cache` (Back and Forward from the cache without the view transition) |
+| `navigation-rescue.html` | a failure that comes with an empty page: the block says so and the page reloads `rescue_reload` later (the page is reloaded, then gives its verdict) |
 | `navigation-status.html` | answers under 422, 404, 500...: shown in place, no rescue |
 | `no-jquery.html` | the core, the stops and the sortable on a page without jQuery; the others say so when loaded |
 | `replace-canvases.html` | `Transparent.replaceCanvases()` keeps the page's canvases across a swap |
 | `scroll-callback.html` | a scroll of the core's always ends and calls back once: arrived, interrupted, replaced, refused |
+| `sortable-press.html` | a press released outside the list, cancelled, or followed by a move with no button is forgotten; a drag the browser cancels puts the item back, no `onChange` |
 | `sortable.html` | a drag below the others reorders and tells `onChange` once; the keyboard with a handle; a press that does not move is a click |
 | `sticky.html` | the address follows the headline read (`highlight`); a block fades in; `Sticky.scrollTo` is a script's scroll |
+| `sticky-scrolllock.html` | `scrolllock`: a wheel and a touchmove on a held way to a magnet are prevented, `allowScrolling()` false; given back, the reader's again, no listener left |
 | `sticky-effects.html` | every class the module reads, initialised with every option on, the page scrolled through without an error |
 | `sticky-magnets.html` | the magnets under a wheel, held |
 | `sticky-magnets-interruptible.html` | `scrollsnap_hold: false`: the reader's gesture stops the way |
