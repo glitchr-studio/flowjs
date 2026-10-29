@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **ajaxer** - a channel without a url sends nothing and says `No target URL provided.`: the test
+  was `=== undefined` where `Ajaxer.get()` answers `null` for a key never set, so the data went
+  to the page's own address.
+- **ajaxer** - a channel without a target, called as `Ajaxer.send(...)`, no longer throws
+  (`Cannot read properties of undefined (reading 'createDocumentFragment')`, before any request,
+  no callback: `this` was the Ajaxer object, taken for the target and the loader's container).
+  The caller stands in when it is an element or a jQuery object
+  (`Ajaxer.send.call(element, ...)`); otherwise nothing is marked, no loader is shown, the request
+  goes and the callbacks are called once, `this` an empty jQuery object.
+- **ajaxer** - `retry_limit` counts the tries after a failure, as the README and the options table
+  said: `1`, the default, sends a failed request once more. A retry was made only when the failed
+  request was not the first of its channel in flight, and the number was the tries in all, so a
+  request sent alone was never retried. A failure is retried when there was no answer or an
+  answer of 500 or more (not under 500, not an abort, not a `parsererror`); each retry is in the
+  channel's list of requests in flight (`query_limit` counts it, `abort()` stops it); `complete`
+  is called once, at the end of the last try.
+- **ajaxer** - a value set without a name is the default of every channel for `url`, `target`,
+  `loader_container` and `query_limit` too, as for the other keys: `Ajaxer.set('url', '/api')`
+  and `configure({query_limit: 1})` were stored and read by nothing.
+
+  tests/ajaxer-channels.html.
+
+### Removed
+
+- **ajaxer** - `Ajaxer.ready(list, options)` no longer stores a non-empty `list` under
+  `Ajaxer.settings.list`, which nothing read. The parameter stays, not read, so that a call
+  written `ready(list, options)` keeps its options.
+
 ## 1.6.0 - 2026-10-26
 
 - **navigation** - the progress bar never blinks. It had been drawn for as

@@ -26,7 +26,10 @@ Ajaxer.send('search', { q: 'miso' },
 
 A channel is a name. `Ajaxer.send(name, data, success, error, complete)` sends
 for that channel (`Ajaxer.xhr` is the same function); the callbacks are called
-with the target as `this`.
+with the target as `this`. A channel without a target takes the caller for one when there is a
+caller to mark: `Ajaxer.send.call(element, name, ...)` marks that element. Called as
+`Ajaxer.send(...)` without a target, nothing is marked and no loader is shown; the request goes
+all the same and the callbacks are called once, `this` an empty jQuery object.
 
 ## Loading
 
@@ -51,57 +54,42 @@ is the default for every channel.
 
 | Setter | Key | Default | Meaning |
 | --- | --- | --- | --- |
-| `setUrl(name, url)` | `url` | none | where to send; without it nothing is sent |
+| `setUrl(name, url)` | `url` | none | where to send; without it nothing is sent and the console says `No target URL provided.` |
 | `setMethod(name, type)` | `method` | `"POST"` | HTTP method |
 | `setOutput(name, dataType)` | `output` | `"json"` | jQuery's `dataType` |
-| `setTarget(name, el)` | `target` | the caller (`this`) | the element marked while the call is out |
+| `setTarget(name, el)` | `target` | the caller (`this`), when it is an element or a jQuery object; else none | the element marked while the call is out |
 | `setLoaderContainer(name, el)` | `loader_container` | the target | where the `.ajaxer-loader` is put |
 | `setThrottle(name, d)` | `throttle` | `1000` | a send within this duration of the last is dropped; `0` for none |
 | `setDebounce(name, d)` | `debounce` | `0` | wait this long after the last call |
 | `setLoaderDebounce(name, d)` | `loader_debounce` | `1500` | the loader appears only after this long |
-| `setRetryLimit(name, n)` | `retry_limit` | `1` | tries after a failure |
+| `setRetryLimit(name, n)` | `retry_limit` | `1` | tries after a failure (no answer, or an answer of 500 or more); `0` for none |
 | `setQueryLimit(name, n)` | `query_limit` | none | requests in flight at most |
 | `cancelable(name, bool)` | `cancelable` | `false` | at the limit, abort the oldest (true) or refuse the new one |
 | `setLoaderThrottle(name, d)` | `loader_throttle` | none | once shown, the loader stays at least that long |
 
 A setter stores the value under `key[name]` in `Ajaxer.settings` (`Ajaxer.setUrl('search', '/s')`
-is `Ajaxer.set('url[search]', '/s')`); `send()` reads `key[name]` first, then the key alone. The
+is `Ajaxer.set('url[search]', '/s')`); `send()` reads `key[name]` first, then the key alone - for
+every key: `Ajaxer.set('url', '/api')` is the url of every channel that has none of its own. The
 setters return nothing (`undefined`): they do not chain. `Ajaxer.cancelable(name)` without its
 second argument sets `true`. `Ajaxer.getTarget(name)` reads a channel's target back.
 
 | Key | Read by `send()` as | Type |
 |---|---|---|
-| `url` | `url[name]` only | string |
+| `url` | `url[name]`, else `url`; neither (or an empty string): nothing is sent | string |
 | `method` | `method[name]`, else `method` | string (`GET`, `POST`, ...) |
 | `output` | `output[name]`, else `output` | jQuery `dataType`: `json`, `html`, `text`, ... |
-| `target` | `target[name]` only, else `this` of the call | element, selector or jQuery object |
-| `loader_container` | `loader_container[name]` only, else the target | element, selector or jQuery object |
+| `target` | `target[name]`, else `target`, else the caller (`this` of the call, when it is an element or a jQuery object) | element, selector or jQuery object |
+| `loader_container` | `loader_container[name]`, else `loader_container`, else the target | element, selector or jQuery object |
 | `throttle` | `throttle[name]`, else `throttle` | duration |
 | `debounce` | `debounce[name]`, else `debounce` | duration |
 | `loader_debounce` | `loader_debounce[name]`, else `loader_debounce` | duration |
 | `loader_throttle` | `loader_throttle[name]`, else `loader_throttle` | duration |
 | `retry_limit` | `retry_limit[name]`, else `retry_limit` | number |
-| `query_limit` | `query_limit[name]` only (read with `parseInt`; not a number: no limit) | number |
+| `query_limit` | `query_limit[name]`, else `query_limit` (read with `parseInt`; not a number: no limit) | number |
 | `cancelable` | `cancelable[name]`, else `cancelable` | boolean |
 
-> [!WARNING]
-> Known defect: `url`, `target`, `loader_container` and `query_limit` are read for the channel
-> only (`url[name]`, ...): `Ajaxer.set('url', '/api')` or `Ajaxer.configure({query_limit: 1})` is
-> stored and read by nothing, where a value set without a name is expected to be the default of
-> every channel, as it is for the other keys.
 
-> [!WARNING]
-> Known defect: a channel without a url is sent all the same - `Ajaxer.get()` answers `null`
-> for a key never set and `send()` tests for `undefined` - so jQuery sends the data to the
-> page's own address (checked in headless Chrome: `POST /ajax.html`), where nothing is expected
-> to be sent and "No target URL provided." to be logged.
 
-> [!WARNING]
-> Known defect: a channel without a target, called as `Ajaxer.send(...)`, takes `this` - the
-> `Ajaxer` object - for its target and loader container, and `send()` throws a `TypeError`
-> (`Cannot read properties of undefined (reading 'createDocumentFragment')`) before any request,
-> where "the caller" is expected to stand in. Give every channel a target (`setTarget()`), or
-> call `Ajaxer.send.call(element, name, ...)` for `this` to be that element.
 
 A duration (`throttle`, `debounce`, `loader_debounce`) is a number of
 milliseconds, or a string with its unit, and is worth what it says: `400` and
@@ -138,16 +126,17 @@ that sends on each keystroke sets `setThrottle(name, 0)` and a `debounce`.
 
 ### Retries
 
-`retry_limit` is carried in the request's settings (`retryLimit`, with a `tryCount`), and the
-error handler sends the same request again while `++tryCount < retryLimit`: the number is the
-tries in all, so `1`, the default, never retries.
+`retry_limit` is the number of tries after a failure: `1`, the default, sends a failed request
+once more, `3` up to three times more, `0` never. A failure is retried when there was no answer
+at all (the network) or an answer of 500 or more; an answer under 500 (404, 422...) says what is
+wrong with the request and is not retried, nor is an aborted request or one jQuery could not read
+(`parsererror`). A retry is the same request (its data and callbacks), sent at once and put in the
+channel's list of requests in flight as the first was, so `query_limit` counts it and `abort()`
+stops it. The failed tries call nothing: `complete` is called once, at the end of the last try, and
+the loader and the target show the last try's failure. (Up to 1.6.0 a request was retried only
+when it was not the first of its channel in flight, and the number was the tries in all: a request
+sent alone was never retried.)
 
-> [!WARNING]
-> Known defect: the retry is made only when the failed request is not the first of its channel
-> in flight (`queryList[name].indexOf(response) > 0`): a request sent alone is never retried,
-> whatever `retry_limit` says (checked in headless Chrome: one `GET` for `retry_limit` 3 and an
-> answer 500), where `retry_limit` is expected to count the tries after a failure. A retry is not
-> registered in the channel's list of requests in flight.
 
 ## States
 
@@ -205,7 +194,7 @@ requests aborted; done on `beforeunload`), `debounce(name, fn, timeout)`,
 
 | Method | Returns | Effect |
 |---|---|---|
-| `ready(list = {}, options = {})` | `Ajaxer` | `options.debug` switches the console messages on or off; `configure(options)`; a non-empty array `list` is stored as the `list` key (read by nothing); dispatches `Ajaxer:ready` on `window` |
+| `ready(list = {}, options = {})` | `Ajaxer` | `options.debug` switches the console messages on or off; `configure(options)`; dispatches `Ajaxer:ready` on `window`. `list` is not read (kept for the calls written `ready(list, options)`; up to 1.6.0 a non-empty array was stored as the `list` key, which nothing read) |
 | `configure(options)` | `Ajaxer` | copies every own key of `options` whose value is not `undefined` into `Ajaxer.settings` |
 | `get(key)` | the value, or `null` | `Ajaxer.settings[key]` |
 | `set(key, value)` | `Ajaxer` | `Ajaxer.settings[key] = value` |
@@ -225,9 +214,6 @@ requests aborted; done on `beforeunload`), `debounce(name, fn, timeout)`,
 | `onLoad()` | `undefined` | `ready()`: what the window's `load` calls |
 | `getTarget(name)` | the target, or `null` | |
 
-> [!WARNING]
-> Known defect: `Ajaxer.ready(list, options)` stores a non-empty `list` under the `list` key and
-> nothing reads it, where a list of channels is expected to declare them.
 
 `Ajaxer.version` is `'1.0.56'`. `Ajaxer.settings` holds the defaults and every key set.
 
@@ -276,4 +262,5 @@ before survive it (kept as in 1.0.56).
 
 The defaults object holds `method: "POST"`, `output: "json"`, `cancelable: false`,
 `retry_limit: 1`, `throttle: 1000`, `debounce: 0`, `loader_debounce: 1500`; `loader_throttle`,
-`url`, `target`, `loader_container` and `query_limit` have no default.
+`url`, `target`, `loader_container` and `query_limit` have no default (each can be given one
+with `Ajaxer.set(key, value)` or `configure()`).

@@ -65,14 +65,14 @@
         return isFinite(longest) ? longest : 0;
     };
 
+    // The first parameter is kept for the calls written ready(list, options); it is not read (up to
+    // 1.6.0 a non-empty array was stored under settings.list, which nothing read).
     Ajaxer.ready = function (list = {}, options = {}) {
 
-        if("debug" in options)
+        if(options && "debug" in options)
             debug = options["debug"];
 
         Ajaxer.configure(options);
-        if(Array.isArray(list) && list.length)
-            Ajaxer.configure({list: list});
 
         ready = true;
 
@@ -313,22 +313,59 @@
         return typeof v === 'object' && v !== null && !(v instanceof Array) && !(v instanceof Date);
     }
 
+    // A channel's value: its own (key[name]), else the one set without a name, the default of
+    // every channel; null when neither is set.
+    const setting = function (key, name) {
+
+        const own = Ajaxer.get(key + "[" + name + "]");
+        return own !== null && own !== undefined ? own : Ajaxer.get(key);
+    };
+
+    // The caller of send(), when it is something to mark: an element, or a jQuery object
+    // (Ajaxer.send.call(element, ...)). Called as Ajaxer.send(...), `this` is Ajaxer: no caller.
+    const caller = function (that) {
+
+        if (!that || that === Ajaxer || that === window) return null;
+        if (that instanceof $ || that.nodeType === 1 || that.nodeType === 9) return that;
+        return null;
+    };
+
+    // A failure worth trying again: no answer at all (the network), or the server's (500 or more).
+    // An answer under 500 says what is wrong with the request: sent again, it gets the same.
+    const retryable = function (xhr, textStatus) {
+
+        if (textStatus === "abort" || textStatus === "parsererror") return false;
+        return xhr.status === 0 || xhr.status >= 500;
+    };
+
     Ajaxer.send = Ajaxer.xhr = function(name, data = {}, success = function() {}, error = function() {}, complete = function() {})
     {
         if( typeof name !== "string" )
             console.error("Unexpected ajax request name received.");
 
+        success = typeof success === "function" ? success : function() {};
+        error = typeof error === "function" ? error : function() {};
+        complete = typeof complete === "function" ? complete : function() {};
+
         return Ajaxer.throttle(name, () => Ajaxer.debounce(name, () => function() {
 
-            if (Ajaxer.get("url[" + name + "]") === undefined) console.error("No target URL provided.");
+            const url = setting("url", name);
+            if (url === null || url === undefined || url === "") console.error("No target URL provided.");
             else {
 
-                const target = $(Ajaxer.get("target[" + name + "]") || this);
-                const loaderContainer = Ajaxer.get("loader_container[" + name + "]")
-                        ?? (Ajaxer.get("target[" + name + "]") || this);
+                // Without a target and without a caller to mark, nothing is marked and no loader
+                // shown: the callbacks are called once, `this` an empty jQuery object.
+                const targetSetting = setting("target", name) || caller(this);
+                const target = targetSetting ? $(targetSetting) : $();
+                const loaderContainer = setting("loader_container", name) || targetSetting;
+                const call = function (fn, args) {
 
-                let loader = $(loaderContainer).find(" .ajaxer-loader");
-                if (loader.length === 0) {
+                    if (target.length === 0) fn.call(target, ...args);
+                    else target.each(function () { fn.call(target, ...args); });
+                };
+
+                let loader = loaderContainer ? $(loaderContainer).find(" .ajaxer-loader") : $();
+                if (loader.length === 0 && loaderContainer && $(loaderContainer).length) {
 
                     loader = $(document.createElement("div"));
                     loader.addClass("ajaxer-loader");
@@ -338,7 +375,8 @@
                     loader = $(loaderContainer).find(" .ajaxer-loader");
                 }
 
-                loader = loader[0];
+                // no container: a loader of its own, never put in the page
+                loader = loader[0] || $("<div class='ajaxer-loader'><span class='ajaxer-status'></span></div>")[0];
                 target.removeClass(function (index, className) {
                     return (className.match(/(^|\s)ajaxer-\S+/g) || []).join(' ');
                 });
@@ -346,7 +384,7 @@
                 if (!(name in queryList))
                     queryList[name] = [];
 
-                const queryLimit = parseInt(Ajaxer.get("query_limit[" + name + "]"));
+                const queryLimit = parseInt(setting("query_limit", name));
                 if (queryList[name].length >= queryLimit && !isNaN(queryLimit)) {
 
                     const cancelable = Ajaxer.get("cancelable["+name+"]") ?? Ajaxer.get("cancelable");
@@ -376,13 +414,22 @@
                 };
                 let loaderTimeout = setTimeout(showLoader, loaderDebounceTime);
 
-                const response = $.ajax({
-                    url: Ajaxer.get("url[" + name + "]"),
+                // The request in flight: the first, then each retry, registered in its turn.
+                let response = null;
+                const resend = function (settings) {
+
+                    Ajaxer.unregister(response);
+                    response = $.ajax(settings);
+                    Ajaxer.register(name, response);
+                };
+
+                response = $.ajax({
+                    url: url,
                     type: Ajaxer.get("method[" + name + "]") ?? Ajaxer.get("method"),
                     dataType: Ajaxer.get("output[" + name + "]") ?? Ajaxer.get("output"),
                     data: data,
                     tryCount : 0,
-                    retryLimit : Ajaxer.get("retry_limit[" + name + "]") ?? Ajaxer.get("retry_limit"),
+                    retryLimit : parseInt(Ajaxer.get("retry_limit[" + name + "]") ?? Ajaxer.get("retry_limit")) || 0,
                     success: function (...args) {
 
                         const status = args[0];
@@ -392,22 +439,16 @@
 
                             $(loader).addClass("ajaxer-call");
                             $(loader).addClass("ajaxer-error");
-                            $(target).each(function () {
-
-                                $(target).addClass("ajaxer-error");
-                                error.call(target, ...args);
-                            });
+                            target.addClass("ajaxer-error");
+                            call(error, args);
 
                         } else {
 
                             hideLoader();
                             $(loader).addClass("ajaxer-success");
                             $(loader).removeClass("ajaxer-error");
-                            $(target).each(function () {
-
-                                $(target).addClass("ajaxer-success");
-                                success.call(target, ...args);
-                            });
+                            target.addClass("ajaxer-success");
+                            call(success, args);
                         }
 
                         Ajaxer.unregister(response);
@@ -416,6 +457,20 @@
                     error: function (...args) {
 
                         const xhr = args[0];
+                        const textStatus = args[1];
+
+                        // retry_limit: the tries after a failure. A retry is the same request sent
+                        // again, in the channel's list as the first was; its failed try is not
+                        // complete: complete is called once, at the end of the last one.
+                        if (retryable(xhr, textStatus) && this.tryCount < this.retryLimit) {
+
+                            // the flag after the copy: the retry's own settings are made from these
+                            this.tryCount++;
+                            resend(this);
+                            this.retrying = true;
+                            return;
+                        }
+
                         clearTimeout(loaderTimeout);
 
                         let ret = undefined;
@@ -433,25 +488,15 @@
                             $(loader).addClass("ajaxer-call");
                             $(loader).find(".ajaxer-status").html("");
                             $(loader).removeClass("ajaxer-error");
-                            $.ajax(this);
+                            this.tryCount = 0;
+                            resend(this);
 
                         }.bind(this));
-
-                        if(queryList[name].indexOf(response) > 0) {
-
-                            if (++this.tryCount < this.retryLimit) {
-                                $.ajax(this);
-                                return;
-                            }
-                        }
 
                         if(ret) {
 
                             $(loader).addClass("ajaxer-error");
-                            $(target).each(function () {
-
-                                $(target).addClass("ajaxer-error");
-                            });
+                            target.addClass("ajaxer-error");
                         }
 
                         Ajaxer.unregister(response);
@@ -459,12 +504,15 @@
 
                     complete: function (...args) {
 
-                        clearTimeout(loaderTimeout);
-                        $(target).each(function () {
+                        if (this.retrying) {
 
-                            $(target).removeClass("ajaxer-call");
-                            complete.call(target, ...args);
-                        });
+                            this.retrying = false;
+                            return;
+                        }
+
+                        clearTimeout(loaderTimeout);
+                        target.removeClass("ajaxer-call");
+                        call(complete, args);
                     }
                 });
 
