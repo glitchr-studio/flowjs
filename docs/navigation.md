@@ -82,8 +82,8 @@ Set with `Transparent.ready({...})` or `Transparent.configure({...})`.
 | `identifier` | `"#page"` | the block swapped |
 | `loader` | `"#loader"` | |
 | `throttle` | `1000` | |
-| `rescue_reload` | `5000` | |
-| `lazyload` | `true` | |
+| `rescue_reload` | `5000` | ms before the page reloads after a failure that came with an empty page |
+| `lazyload` | `true` | the lazy loading of `img[data-src]`; `false` switches it off |
 | `exceptions` | `[]` | paths (RegExp or wildcard strings) left to the browser |
 | `prefetch` | `true` | only anchors with `rel="prefetch"` are fetched ahead; `false` switches the mechanism off |
 | `prefetch_delay` | `65` | ms the pointer dwells before the fetch |
@@ -93,7 +93,7 @@ Set with `Transparent.ready({...})` or `Transparent.configure({...})`.
 | `smoothscroll_duration` / `_speed` / `_easing` | `"200ms"` / `0` / `"swing"` | |
 | `headlock` | `[]` | URL substrings or patterns kept in `<head>` across pages; `data-headlock="true"` / `"false"` on an element overrides |
 | `use_view_transitions` | `false` | wrap the swap in `document.startViewTransition()` where supported |
-| `skip_transition_for_cache` | `false` | cache hits skip the view transition |
+| `skip_transition_for_cache` | `false` | a page given back from the history's cache (Back, Forward) skips the view transition |
 | `progress_bar` | `true` | the native bar (below); `false` or `'off'` for another indicator |
 | `progress_bar_delay` | `200` | ms a navigation must last before the bar shows: a faster one shows none (1.6) |
 | `progress_bar_min` | `400` | ms the bar stays once shown (1.6) |
@@ -122,11 +122,11 @@ The settings object in the order the source declares it, with what the code does
 | `disable` | boolean | `false` | every listener gives up at once: the browser handles the links and forms, the nest does not open, ESC does nothing |
 | `global_code` | boolean | `true` | run the `<script>` elements inside the swapped block; `false`: none of them runs (neither inline nor with `src`) |
 | `debug` | boolean | `false` | says in the console what it does (running, a failed `pushState`, a track-reload, a view transition that failed, the nest's failures); with `debug`, a JSON answer that does not parse is rescued |
-| `lazyload` | boolean | `true` | declared, never read: see the defect below |
+| `lazyload` | boolean | `true` | the lazy loading (see [Lazy loading](#lazy-loading)); `false`: none of its runs - at `DOMContentLoaded`, at `ready()`, at each swap, a call of `Transparent.lazyLoad()` - gives a picture its `src`, and the pictures already watched keep their `data-src` when they come into view |
 | `response_text` | object | `{}` | declared, never read |
 | `response_limit` | number | `25` | how many pages the `sessionStorage` cache keeps (the oldest goes first) |
 | `throttle` | number (ms) | `1000` | the wait before a full page load when Back or Forward lands on an entry the cache does not have; nothing else |
-| `rescue_reload` | number (ms) | `5000` | when `rescue()` is given an answer with no head, the wait before the page reloads; never the case for a page the navigation parsed (see the defect below) |
+| `rescue_reload` | duration | `5000` | a failure that came with an empty page (no head and no body, or both empty - a 500 with nothing in it): the block reads `<div class='error'></div>` and the page reloads this long after (a number of ms, `"5s"`, `"300ms"`); see [A page under another status than 200](#a-page-under-another-status-than-200) |
 | `prefetch` | boolean | `true` | `false` turns the hover prefetch off; `true` prefetches only the links marked `rel="prefetch"` (see [Prefetch](#prefetch)) |
 | `prefetch_delay` | number (ms) | `65` | how long the pointer rests on a link before its prefetch starts; a touch starts it at once |
 | `prefetch_ttl` | number (ms) | `30000` | how long a prefetched page answers a click; `0`: no limit |
@@ -151,7 +151,7 @@ The settings object in the order the source declares it, with what the code does
 | `nest_remember_key` | string | `"transparent[nest][layout]"` | the `localStorage` key of that layout |
 | `headlock` | array | `[]` | strings (contained in) or RegExp (tested on) the `src` or `href` of a head element, or the text of an inline `<style>`: such elements stay in the head across swaps (see [The head and the scripts](#the-head-and-the-scripts)) |
 | `use_view_transitions` | boolean | `false` | the swap runs inside `document.startViewTransition()` where the browser has it; elsewhere, and if it throws, the swap runs as usual |
-| `skip_transition_for_cache` | boolean | `false` | declared, never read: see the defect below |
+| `skip_transition_for_cache` | boolean | `false` | with `use_view_transitions`, a page given back from the history's cache (Back, Forward) is swapped without the view transition; a page from the network (a link, a form, a prefetched page) still goes through it |
 | `progress_bar` | boolean or `"off"` | `true` | `false` or `"off"` takes `progress-bar-native` off `<html>`, which hides the bar and the progress cursor of `navigation.scss` |
 | `progress_bar_delay` | number (ms) | `200` | a navigation shorter than this shows no bar at all (1.6, see [The progress bar](#the-progress-bar-16)) |
 | `progress_bar_min` | number (ms) | `400` | once shown, the bar stays at least this long (1.6) |
@@ -159,22 +159,8 @@ The settings object in the order the source declares it, with what the code does
 | `nest_esc_confirm` | string | `"Close this panel? Any unsaved changes may be lost."` | the `confirm()` question before Escape closes the nest |
 | `cache_version` | any or `null` | `null` | compared, as a string, with the one kept in `sessionStorage` at the first `ready()`, at each navigation and each time the tab becomes visible: different, every cached page is dropped. `null`: never checked |
 
-> [!WARNING]
-> Known defect: `lazyload` is declared (`true`) and never read: `Transparent.ready({ lazyload: false })`
-> leaves the lazy loading on - an `img[data-src]` in view still gets its `src` and the class
-> `loaded` (checked in headless Chrome) - where the README lists it as the switch of the lazy
-> loading. To keep a picture out of it, do not give it `data-src`.
 
-> [!WARNING]
-> Known defect: `skip_transition_for_cache` is declared (`false`) and never read: a page given back
-> from the cache goes through the view transition whatever its value, where the option says cache
-> hits skip it.
 
-> [!WARNING]
-> Known defect: `rescue_reload` is read only when `rescue()` finds no `<head>` in what it is given,
-> and the navigation always gives it a parsed document, which has one: the reload it times never
-> happens from a failed navigation (the answer replaces the document instead, see
-> [A page under another status than 200](#a-page-under-another-status-than-200)).
 
 ## What the navigation takes, and what it leaves to the browser
 
@@ -190,18 +176,14 @@ these hold; otherwise the browser follows the link as usual:
 - the path matches none of `exceptions` and does not start with `/css`, `/js`, `/images` or
   `/vendor`;
 - the link is of this origin;
-- no modifier key is held (Cmd, Ctrl, Shift, Alt) and the link has no `target="_blank"`.
+- no modifier key is held (Cmd, Ctrl, Shift, Alt) and the link has no `target="_blank"`;
+- the link has no `download` attribute (the browser saves its file, under the name the attribute
+  gives; the prefetch leaves such a link alone too).
 
 A link to another page of the site is then fetched and swapped in. A link to the same address
 and query with a hash scrolls to that anchor (see [Anchors of the page](#anchors-of-the-page));
 the very same address with no hash does nothing.
 
-> [!WARNING]
-> Known defect: a link with a `download` attribute is taken like any other: its file is requested
-> by the navigation, and, the answer being no page, the browser is then sent to it
-> (`location.href`) - the download's own file name is lost and the file is fetched twice (checked
-> in headless Chrome: the click's default is prevented and a GET goes out), where such a link is
-> expected to be left to the browser. Give it a path listed in `exceptions`, or `target="_blank"`.
 
 `class="reload"` lets the browser have a form (see below); on a link it changes nothing: the link
 is still swapped in (checked in headless Chrome). An excepted path is the way to have one link
@@ -277,15 +259,12 @@ What the answer is decides what happens:
 
 `data-layout` on the block names its layout: `<html>` gets `new` the first time a layout is seen in
 the tab, `same` when the next page has the current layout, and `<previous>-to-<next>` (for example
-`article-to-home`); the incoming block gets `data-layout-prev` with the layout it replaces.
+`article-to-home`, with the event `transparent:article-to-home`); the incoming block gets
+`data-layout-prev` with the layout it replaces. The `<previous>-to-<next>` class is on `<html>`
+from the answer to the end of the entrance: the swap spares it (it takes off the other classes
+the new page's `<html>` does not carry) and it goes once the page is in, with `new`, `submit` and
+`popstate`. CSS can animate an entrance by layout pair on it.
 
-> [!WARNING]
-> Known defect: the `<previous>-to-<next>` class is taken off `<html>` during the swap, before the
-> new block is in (checked in headless Chrome, `main-to-admin`: present between the answer and the
-> swap, gone when the block comes in), where the swap means to keep it for the entrance phase -
-> the class it spares is built the other way round (`<next>-to-<previous>`,
-> `src/js/transparent.js:2104` against `:3475`). CSS that animates an entrance by layout pair
-> cannot rely on it; the event `transparent:<previous>-to-<next>` is dispatched as expected.
 
 ### The head and the scripts
 
@@ -302,16 +281,10 @@ the tab, `same` when the next page has the current layout, and `<previous>-to-<n
   node) does not run again.
 - **Scripts inside the block**: with `global_code` on, each `<script>` of a JavaScript type (no
   type, a JavaScript MIME type or `module`; never `application/json`, `ld+json` or a template) is
-  replaced by a fresh copy, which the browser runs; an inline script that throws is reported
-  (`Transparent: a page script failed`) and the swap goes on.
+  replaced by a fresh copy, which the browser runs once, as on a page load: a `var` of its own is a
+  global, a module runs as a module, `document.currentScript` is the copy. A script that throws
+  is the browser's uncaught error, as any page script's, and the swap goes on.
 
-> [!WARNING]
-> Known defect: with `global_code` on, an inline `<script>` of the swapped block runs twice: once
-> through `eval()` in `evalScript()` and once more when its fresh copy is inserted
-> (`src/js/transparent.js:1645` and `:1651`) - checked in headless Chrome, a counter in such a
-> script reads 2 after one navigation, while a `<script src>` in the block runs once - where a
-> page's script is expected to run once, as on a page load. Keep inline code of the block
-> idempotent, or move it to the head or to `body > script`.
 
 - **Canvases**: a `<canvas>` with an `id` that the new block has too is moved into it, drawn as it
   was; one without an `id` is kept where the new page has the same place for it.
@@ -509,8 +482,11 @@ document with what came, and `Transparent.isRescueMode()` is `true` from
 then on.
 
 The rescue sets the answer's head and body as the document's (`innerHTML`) and runs their scripts
-through `evalScript()` (an inline one twice, as in the swapped block: see the defect under
-[The head and the scripts](#the-head-and-the-scripts)). A draft of the form that was being sent is
+through `evalScript()` (each once, as in the swapped block: see
+[The head and the scripts](#the-head-and-the-scripts)). An answer with nothing in it (no head and no
+body, or both empty: a 500 that came with an empty page) is not put in place of the document,
+which would leave a blank page: the block reads `<div class='error'></div>` and the page reloads
+`rescue_reload` (5000 ms) later. A draft of the form that was being sent is
 kept (see [Form memory](#form-memory)) and the form is usable again. While in rescue mode, the page
 left by Back or Forward is not kept.
 
@@ -565,7 +541,11 @@ An `img[data-src]` without the class `loaded` gets its `src` from `data-src` whe
 (an `IntersectionObserver`; without one, on scroll and resize, 20 ms throttled). The picture gets
 `loading`, then `loaded` or `error`; an ancestor `.lazybox` gets the same classes. It runs at
 `DOMContentLoaded` (each swap's too) and at each `ready()`; `Transparent.lazyLoad(images)` runs it
-on a list of one's own. `navigation.scss` hides an `img[data-src]` until `loaded` and makes a
+on a list of one's own. `lazyload: false` switches it off: none of these runs gives a picture its
+`src`, and a picture already watched keeps its `data-src` when it comes into view. Set before
+`DOMContentLoaded` (`Transparent.configure({lazyload: false})` in a script of the page) it keeps
+the first page's pictures out too; given to `ready()` at the window's `load`, it stops the lazy
+loading from then on. `navigation.scss` hides an `img[data-src]` until `loaded` and makes a
 `.lazybox.loading` blink.
 
 ```html
