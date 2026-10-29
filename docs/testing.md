@@ -60,6 +60,7 @@ module costs), and gives the waits a scroll test needs.
 | Page | What it checks |
 |---|---|
 | `ajaxer.html` | a channel sends through `$.ajax` and calls back with the JSON; the loader and the `ajaxer-success` / `ajaxer-error` classes; throttle, debounce, loader timings, `query_limit`, `abort()` |
+| `ajaxer-channels.html` | a channel without a url sends nothing; without a target, `Ajaxer.send()` sends and calls back once, and `.call(element)` marks that element; `retry_limit` counts the tries after a failure (500: retried, 404: not), a retry is in the channel's list; a value set without a name is every channel's default (`url`, `target`, `loader_container`, `query_limit`); `ready(list)` stores no list |
 | `cohabitation.html` | the navigation and the stops together: a scroll the navigation makes rests where it was put, the reader's own still settles; the listeners after a swap |
 | `cookie.html` | Cookie without its banner: what @glitchr/cookie 1.0.53 did, under the same names; categories, states, defaults, storage |
 | `cookie-banner.html` | the banner: shown on a first visit, labelled, accept and refuse, the detailed section, the switches |

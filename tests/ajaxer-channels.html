@@ -1,0 +1,146 @@
+<!doctype html>
+<!--
+  Ajaxer's channels as docs/ajaxer.md describes them: a channel without a url sends nothing and
+  says so; one without a target, called as Ajaxer.send(...), sends and calls back (no TypeError),
+  and the caller given with .call(element) stands in; retry_limit counts the tries after a failure
+  (a request sent alone is retried, each retry is in the channel's list, abort() stops them, an
+  answer under 500 is not retried); a value set without a name is the default of every channel
+  (url, target, loader_container, query_limit). Opened by tests/run.mjs; verdict in #result.
+-->
+<html>
+<head><meta charset="utf-8"><title>ajaxer channels</title></head>
+<body>
+<div id="target" style="position: relative; height: 60px"></div>
+<div id="caller" style="position: relative; height: 60px"></div>
+<div id="global" style="position: relative; height: 60px"></div>
+<div id="box"></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/ajaxer.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var sent = [];
+        $(document).on('ajaxSend', function (e, xhr, settings) { sent.push(settings.url); });
+        var target = document.getElementById('target');
+        Ajaxer.ready();
+        Ajaxer.setLoaderDebounce('x', 0);
+
+        // No url: nothing is sent, the console says so, no callback.
+        Harness.expect(/No target URL provided/);
+        var called = 0;
+        Ajaxer.setTarget('nourl', target);
+        Ajaxer.setThrottle('nourl', 0);
+        Ajaxer.send('nourl', { a: 1 }, function () { called++; }, function () { called++; }, function () { called++; });
+        await H.after(200);
+        H.check(sent.length === 0 && called === 0, 'a channel without a url sends nothing', JSON.stringify(sent) + ' ' + called);
+
+        // No target, called as Ajaxer.send(...): the request goes and calls back once.
+        Ajaxer.setUrl('notarget', '/site/api?n=1');
+        Ajaxer.setMethod('notarget', 'GET');
+        Ajaxer.setThrottle('notarget', 0);
+        var answers = [];
+        var thrown = null;
+        try {
+            Ajaxer.send('notarget', {}, function (data) { answers.push(['success', this.length, data.method]); }, null, function () { answers.push(['complete', this.length]); });
+        } catch (e) { thrown = e; }
+        await H.until(function () { return answers.length >= 2; }, 2000);
+        H.check(thrown === null, 'without a target, Ajaxer.send() throws nothing', thrown && thrown.message);
+        H.check(JSON.stringify(answers) === '[["success",0,"GET"],["complete",0]]', 'it sends and calls back once, this an empty jQuery object', JSON.stringify(answers));
+        H.check(document.querySelectorAll('.ajaxer-loader').length === 0, 'no loader is put anywhere');
+        // The caller given with .call(element) is the target.
+        var caller = document.getElementById('caller');
+        answers = [];
+        Ajaxer.send.call(caller, 'notarget', {}, function () { answers.push(this[0] === caller); });
+        await H.until(function () { return answers.length >= 1; }, 2000);
+        H.check(answers[0] === true && caller.classList.contains('ajaxer-success') && caller.querySelector('.ajaxer-loader'), 'Ajaxer.send.call(element, ...) marks that element', caller.className);
+
+        // retry_limit: the tries after a failure.
+        Harness.expect(/500/);
+        var retried = function (name, limit, query) {
+            Ajaxer.setUrl(name, '/site/api?' + query);
+            Ajaxer.setMethod(name, 'GET');
+            Ajaxer.setThrottle(name, 0);
+            Ajaxer.setTarget(name, target);
+            if (limit !== null) Ajaxer.setRetryLimit(name, limit);
+        };
+        retried('three', 3, 'fail=500&r=three');
+        sent = [];
+        var completed = 0;
+        Ajaxer.send('three', {}, null, null, function () { completed++; });
+        await H.until(function () { return completed >= 1; }, 3000);
+        await H.after(100);
+        H.check(sent.length === 4, 'retry_limit 3 and an answer 500: the request and three retries', sent.length);
+        H.check(completed === 1 && target.classList.contains('ajaxer-error'), 'complete called once, at the end, the target in error', completed + ' ' + target.className);
+
+        retried('default', null, 'fail=500&r=default');
+        sent = [];
+        completed = 0;
+        Ajaxer.send('default', {}, null, null, function () { completed++; });
+        await H.until(function () { return completed >= 1; }, 3000);
+        await H.after(100);
+        H.check(sent.length === 2, 'the default retry_limit, 1: one retry', sent.length);
+
+        retried('none', 0, 'fail=500&r=none');
+        sent = [];
+        completed = 0;
+        Ajaxer.send('none', {}, null, null, function () { completed++; });
+        await H.until(function () { return completed >= 1; }, 3000);
+        await H.after(100);
+        H.check(sent.length === 1, 'retry_limit 0: no retry', sent.length);
+
+        retried('client', 3, 'fail=404&r=client');
+        sent = [];
+        completed = 0;
+        Ajaxer.send('client', {}, null, null, function () { completed++; });
+        await H.until(function () { return completed >= 1; }, 3000);
+        await H.after(100);
+        H.check(sent.length === 1, 'an answer under 500 (404) is not retried', sent.length);
+
+        retried('stopped', 5, 'fail=500&ms=120&r=stopped');
+        sent = [];
+        completed = 0;
+        Ajaxer.send('stopped', {}, null, null, function () { completed++; });
+        await H.until(function () { return sent.length >= 2; }, 3000);
+        await H.after(20);
+        // the retry in flight is in the channel's list: abort() reaches it
+        Ajaxer.abort('stopped');
+        await H.after(400);
+        H.check(sent.length === 2, 'a retry is in the channel\'s list: abort() stops it, no more retries', sent.length);
+
+        // A value set without a name is the default of every channel.
+        var global = document.getElementById('global');
+        var box = document.getElementById('box');
+        Ajaxer.set('url', '/site/api?default=1');
+        Ajaxer.set('target', global);
+        Ajaxer.set('loader_container', box);
+        Ajaxer.setThrottle('plain', 0);
+        Ajaxer.setMethod('plain', 'GET');
+        sent = [];
+        answers = [];
+        Ajaxer.send('plain', {}, function () { answers.push(this[0] === global); });
+        await H.until(function () { return answers.length >= 1; }, 2000);
+        H.check(sent.length === 1 && /\/site\/api\?default=1/.test(sent[0]), 'Ajaxer.set("url", ...) is every channel\'s url', JSON.stringify(sent));
+        H.check(answers[0] === true && global.classList.contains('ajaxer-success'), 'Ajaxer.set("target", ...) is every channel\'s target', global.className);
+        H.check(box.querySelector('.ajaxer-loader') !== null && global.querySelector('.ajaxer-loader') === null, 'Ajaxer.set("loader_container", ...) holds every channel\'s loader');
+        Ajaxer.configure({ query_limit: 1 });
+        Ajaxer.setUrl('limited', '/site/api?ms=150');
+        Ajaxer.setThrottle('limited', 0);
+        Ajaxer.setMethod('limited', 'GET');
+        answers = [];
+        Ajaxer.send('limited', { n: 1 }, function (data) { answers.push(data.sent[1][1]); });
+        Ajaxer.send('limited', { n: 2 }, function (data) { answers.push(data.sent[1][1]); });
+        await H.after(350);
+        H.check(answers.join() === '1', 'configure({query_limit: 1}) limits every channel', answers.join());
+        H.check(Ajaxer.get('url[limited]') === '/site/api?ms=150', 'a channel\'s own value wins over the default');
+
+        // ready(list): the list is not kept.
+        Ajaxer.ready(['a', 'b'], {});
+        H.check(!('list' in Ajaxer.settings), 'Ajaxer.ready(list) stores no list', JSON.stringify(Ajaxer.settings.list));
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>
