@@ -421,6 +421,9 @@
         Transparent.lazyLoad();
     });
 
+    // The navigation given back from the history's cache last (skip_transition_for_cache).
+    var cacheHitUuid = null;
+
     Transparent.isRescueMode = function() { return rescueMode; }
     Transparent.getData = function(uuid)
     {
@@ -1719,6 +1722,13 @@
         return SCRIPT_TYPES.test((el.getAttribute('type') || '').split(';')[0].trim());
     }
 
+    // A script of a parsed page does not run when it is moved into the live document: a fresh copy
+    // of it (its text, its attributes) is put in its place, and the browser runs that copy once, as
+    // on a page load - a module as a module, a `var` of its own a global, document.currentScript
+    // set. (Up to 1.6.0 the text was also given to eval() first: an inline script ran twice, the
+    // first time inside this function, where its `var` stayed local and a module could not parse.)
+    // A copy that throws is the browser's uncaught error, reported as any page script's; the swap
+    // goes on.
     Transparent.evalScript = function(el)
     {
         function scriptCloneEl(el){
@@ -1731,10 +1741,6 @@
                 script.setAttribute( (attr = attrs[i]).name, attr.value );
             }
 
-            // One broken inline script is that script's failure, not the
-            // swap's: reported, and the page goes on loading.
-            try { eval($(script).text()); }
-            catch (e) { console.error('Transparent: a page script failed', e); }
             return script;
         }
 
@@ -1778,14 +1784,22 @@
         if (Transparent.formMemory) Transparent.formMemory.abandon();
         releaseInFlightForm();
 
+        // An answer with nothing to show (no head and no body, or both empty: a failure that
+        // came with an empty page) is not put in place of the document, which would leave the
+        // reader on a blank page: the block says so, and the page reloads rescue_reload later.
+        // (Up to 1.6.0 the test compared the body with the string "undefined" and a parsed
+        // document always has a head: the reload never happened.)
         var head = $(dom).find("head").html();
         var body = $(dom).find("body").html();
+        var empty = function (html) { return html === undefined || html === null || !String(html).trim(); };
 
-        if(head == undefined || body == "undefined") {
+        if(empty(head) && empty(body)) {
 
             $(Settings.identifier).html("<div class='error'></div>");
 
-            setTimeout(function() { window.location.reload(); }, Transparent.parseDuration(Settings["rescue_reload"]));
+            // a duration as the others: 5000 or "5000" (ms), "5s", "300ms"
+            var wait = Flow.toMilliseconds(Settings["rescue_reload"]);
+            setTimeout(function() { window.location.reload(); }, isNaN(wait) ? 5000 : wait);
 
         } else {
 
@@ -1841,14 +1855,19 @@
             }, new Set());
     }
 
+    // lazyload: false switches the lazy loading off - its runs at DOMContentLoaded, at ready()
+    // and at each swap, a call of one's own, and the pictures already watched, which keep their
+    // data-src and get no src when they come into view. (Up to 1.6.0 the option was read by
+    // nothing.)
     Transparent.lazyLoad = function (lazyloadImages = undefined)
     {
+        if (!Settings["lazyload"]) return;
         lazyloadImages = lazyloadImages || document.querySelectorAll("img[data-src]:not(.loaded)");
         if ("IntersectionObserver" in window) {
 
             var imageObserver = new IntersectionObserver(function (entries, observer) {
                 entries.forEach(function (entry) {
-                    if (entry.isIntersecting) {
+                    if (entry.isIntersecting && Settings["lazyload"]) {
                         var image = entry.target;
                         var lazybox = image.closest(".lazybox");
 
@@ -1897,6 +1916,7 @@
                 }
 
                 lazyloadThrottleTimeout = setTimeout(function () {
+                    if (!Settings["lazyload"]) return;
                     var scrollTop = window.pageYOffset;
                     lazyloadImages.forEach(function (img) {
                         if (img.offsetTop < (window.innerHeight + scrollTop)) {
@@ -2192,7 +2212,8 @@
             // Make sure name/layout keep the same after a page change (tolerance for POST or GET requests)
             if(oldPage.attr("data-layout") != undefined && page.attr("data-layout") != undefined) {
 
-                var switchLayout = Transparent.state.SWITCH.replace("X", page.attr("data-layout")).replace("Y", oldPage.attr("data-layout"));
+                // <previous>-to-<next>, as the navigation built it before the swap (it takes it off once the page is in)
+                var switchLayout = Transparent.state.SWITCH.replace("X", oldPage.attr("data-layout")).replace("Y", page.attr("data-layout"));
                 page.attr("data-layout-prev", oldPage.attr("data-layout"));
             }
 
@@ -2317,8 +2338,11 @@
         // the CSS fade-out to complete BEFORE VT begins, so VT captures
         // the already-faded state cleanly. Errors inside the callback
         // don't abort the swap — fall back to direct execution.
+        // skip_transition_for_cache: a page given back from the history's cache (Back, Forward)
+        // is swapped without a view transition.
         var _vtEnabled = Settings["use_view_transitions"]
-                         && typeof document.startViewTransition === "function";
+                         && typeof document.startViewTransition === "function"
+                         && !(Settings["skip_transition_for_cache"] && uuid === cacheHitUuid);
         setTimeout(function() {
             if (_vtEnabled) {
                 try {
@@ -3037,6 +3061,11 @@
             return;
         }
 
+        // A link with a download attribute is the browser's: it saves the file under the name the
+        // attribute gives (the prefetch leaves it alone too). Taken here, its file was fetched by
+        // XHR, then fetched again by location.href as "no page", its name lost.
+        if (e.type == Transparent.state.CLICK && Transparent.isElement(link[2]) && link[2].closest && link[2].closest("a[download]")) return;
+
         // What findLink() made of the interaction, for the page to read:
         // where it is going, and what sent it - a link, a button, or the FORM
         // itself for a submission. The payload was passed as a plain `link`
@@ -3713,6 +3742,7 @@
                 if (prefetched) {
 
                     currentNavUuid = uuid;
+                    cacheHitUuid = null;
                     Transparent.setResponseText(uuid, prefetched);
 
                     // Passing a stand-in rather than null for `xhr`, and the
@@ -3781,6 +3811,7 @@
                     // currentNavUuid as it stands at that moment.
                     currentXhr = claimedXhr;
                     currentNavUuid = uuid;
+                    cacheHitUuid = null;
 
                     if (supersededXhr && supersededXhr !== claimedXhr) {
                         try { supersededXhr.abort(); } catch (err) {}
@@ -3812,6 +3843,7 @@
             var xhr = new XMLHttpRequest();
             currentXhr = xhr;
             currentNavUuid = uuid;
+            cacheHitUuid = null;
 
             if (previousXhr) {
                 try { previousXhr.abort(); } catch (err) {}
@@ -3840,6 +3872,7 @@
         // object, but the nest module replays a HOST entry while the
         // current entry is its own (see nest.reopen).
         currentNavUuid = e.state.uuid;
+        cacheHitUuid = e.state.uuid;
         return handleResponse(e.state.uuid, e.state.status, e.state.method, e.state.data);
     }
 

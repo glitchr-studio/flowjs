@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  What a swap does with the block it brings, browsed as a site is (tests/site.mjs): a script of
+  the block runs once, as on a page load (its var a global, a module as a module); a link with a
+  download attribute is left to the browser (not prevented, no request of the navigation); the
+  <previous>-to-<next> layout class stays on <html> while the new block comes in, and goes once it
+  is in. Opened by tests/run.mjs; verdict in #result.
+-->
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="/tests/site.css"><title>navigation swap</title></head>
+<body>
+<div id="page" data-layout="main"><h1>Start</h1><a id="to-scripted" href="/site/page/scripted">scripted</a></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/transparent.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var html = document.documentElement;
+        var $id = function (id) { return document.getElementById(id); };
+        function loaded() {
+            return new Promise(function (resolve, reject) {
+                var timer = setTimeout(function () { reject(new Error('no transparent:load (at ' + location.pathname + ')')); }, 4000);
+                window.addEventListener('transparent:load', function () {
+                    clearTimeout(timer);
+                    requestAnimationFrame(function () { setTimeout(function () { H.after(40).then(resolve); }, 0); });
+                }, { once: true });
+            });
+        }
+        async function click(id) {
+            var next = loaded();
+            $id(id).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+            await next;
+        }
+        // What the navigation requests.
+        var requested = [];
+        var open = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) { requested.push(method + ' ' + url); return open.apply(this, arguments); };
+
+        await new Promise(function (resolve) { window.addEventListener('load', resolve, { once: true }); });
+        Transparent.ready({ identifier: '#page', progress_bar: 'off' });
+        await H.after(60);
+
+        // A script of the block: once.
+        await click('to-scripted');
+        await H.after(100);
+        H.check(window.__runs === 1, 'an inline script of the block runs once', window.__runs);
+        H.check(window.__scriptedVar === 'global', 'as on a page load: its var is a global', window.__scriptedVar);
+        H.check(window.__moduleRuns === 1, 'an inline module of the block runs, once', window.__moduleRuns);
+
+        // A download link: the browser's.
+        var prevented = null;
+        var stop = function (e) { prevented = e.defaultPrevented; e.preventDefault(); };   // after the navigation's listener (document), before the browser
+        window.addEventListener('click', stop);
+        requested.length = 0;
+        $id('to-file').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+        window.removeEventListener('click', stop);
+        await H.after(200);
+        H.check(prevented === false, 'a link with download is not taken by the navigation (default left to the browser)', prevented);
+        H.check(requested.length === 0 && location.pathname === '/site/page/scripted', 'and the navigation requests nothing', requested.join(' | '));
+
+        // The layout class: main-to-other while the new block comes in, gone after.
+        var atSwap = null;
+        var inBlock = function () { if ($id('page').getAttribute('data-layout') === 'other') atSwap = html.classList.contains('main-to-other'); };
+        document.addEventListener('DOMContentLoaded', inBlock);
+        var heard = false;
+        window.addEventListener('transparent:main-to-other', function () { heard = true; }, { once: true });
+        await click('to-other');
+        document.removeEventListener('DOMContentLoaded', inBlock);
+        H.check(heard, 'transparent:main-to-other is dispatched');
+        H.check(atSwap === true, '<html> keeps main-to-other while the new block comes in', atSwap + ' / ' + html.className);
+        await H.until(function () { return !html.classList.contains('main-to-other'); }, 2000);
+        H.check(!html.classList.contains('main-to-other') && !html.classList.contains('other-to-main'), 'and loses it once the page is in', html.className);
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

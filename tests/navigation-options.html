@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Options of the navigation that were declared and read by nothing: lazyload (false: a picture
+  coming into view, or brought by a swap, keeps its data-src) and skip_transition_for_cache (a page
+  given back from the history's cache is swapped without a view transition; without it, with one).
+  Opened by tests/run.mjs; verdict in #result.
+-->
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="/tests/site.css"><title>navigation options</title></head>
+<body>
+<div id="page" data-layout="main"><h1>Start</h1><a id="to-one" href="/site/page/one">one</a><a id="to-lazy" href="/site/page/lazy">lazy</a>
+    <img id="lazy-below" data-src="/site/img?h=40&amp;n=1" alt="" width="40" height="40" style="display: block; margin: 2000px 0 1500px"></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/transparent.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var $id = function (id) { return document.getElementById(id); };
+        await new Promise(function (resolve) { window.addEventListener('load', resolve, { once: true }); });
+
+        function loaded() {
+            return new Promise(function (resolve, reject) {
+                var timer = setTimeout(function () { reject(new Error('no transparent:load (at ' + location.pathname + ')')); }, 4000);
+                window.addEventListener('transparent:load', function () {
+                    clearTimeout(timer);
+                    requestAnimationFrame(function () { setTimeout(function () { H.after(40).then(resolve); }, 0); });
+                }, { once: true });
+            });
+        }
+        async function click(id) {
+            var next = loaded();
+            $id(id).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+            await next;
+        }
+        async function travel(by) { var next = loaded(); history[by](); await next; }
+
+        // lazyload: false
+        Transparent.ready({ identifier: '#page', progress_bar: 'off', lazyload: false, use_view_transitions: true, skip_transition_for_cache: true });
+        await H.after(60);
+        window.scrollTo({ top: 1800, behavior: 'instant' });
+        await H.after(300);
+        H.check(!$id('lazy-below').getAttribute('src'), 'lazyload false: a picture coming into view keeps its data-src', $id('lazy-below').getAttribute('src'));
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        await click('to-lazy');
+        await H.after(300);
+        H.check(!$id('lazy-in-view').getAttribute('src'), 'nor does one a swap brings into view', $id('lazy-in-view').getAttribute('src'));
+        Transparent.configure({ lazyload: true });
+        Transparent.lazyLoad();
+        await H.until(function () { return $id('lazy-in-view').getAttribute('src'); }, 2000);
+        H.check(/\/site\/img/.test($id('lazy-in-view').getAttribute('src') || ''), 'lazyload true again: it loads', $id('lazy-in-view').getAttribute('src'));
+
+        // skip_transition_for_cache
+        var transitions = 0;
+        var start = document.startViewTransition.bind(document);
+        document.startViewTransition = function (callback) { transitions++; return start(callback); };
+        await click('to-one');
+        H.check(transitions === 1, 'a page from the network goes through the view transition', transitions);
+        await travel('back');
+        H.check(transitions === 1 && $id('lazy-in-view') !== null, 'skip_transition_for_cache: Back, from the cache, goes without', transitions);
+        Transparent.configure({ skip_transition_for_cache: false });
+        await travel('forward');
+        H.check(transitions === 2 && document.querySelector('#page h1').textContent === 'One', 'without it, Forward from the cache goes through it', transitions);
+        document.startViewTransition = start;
+
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

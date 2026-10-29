@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  rescue_reload: a failure that comes with an empty page (a 500 with nothing in it) is not put in
+  place of the document, which left a blank page: the block says so (.error) and the page reloads
+  rescue_reload later. The page writes what it saw in sessionStorage, is reloaded, and gives its
+  verdict once opened again. Opened by tests/run.mjs; verdict in #result.
+-->
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="/tests/site.css"><title>navigation rescue</title></head>
+<body>
+<div id="page" data-layout="main"><h1>Start</h1><a id="to-empty" href="/site/empty">empty</a></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/transparent.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var KEY = 'navigation-rescue';
+        H.expect(/Rescue mode/); H.expect(/Unexpected XHR response/); H.expect(/Storage/);
+        await new Promise(function (resolve) { window.addEventListener('load', resolve, { once: true }); });
+
+        var seen = sessionStorage.getItem(KEY);
+        if (seen) {
+            // Opened again by the reload: what the first visit saw, and the reload itself.
+            sessionStorage.removeItem(KEY);
+            seen = JSON.parse(seen);
+            H.check(seen.error, 'an empty failure: the block says so (.error), the document is not replaced by nothing', seen.body);
+            H.check(performance.getEntriesByType('navigation')[0].type === 'reload', 'then the page reloads', performance.getEntriesByType('navigation')[0].type);
+            H.check(seen.waited >= 250 && seen.waited < 2500, 'rescue_reload ("300ms") after the rescue', seen.waited);
+            H.done();
+            return;
+        }
+
+        Transparent.ready({ identifier: '#page', progress_bar: 'off', rescue_reload: '300ms' });
+        await H.after(60);
+        var began = 0;
+        var record = { error: false, body: '', waited: 0 };
+        window.addEventListener('pagehide', function () {
+            record.waited = began ? Date.now() - began : -1;
+            sessionStorage.setItem(KEY, JSON.stringify(record));
+        });
+        $('#to-empty')[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+        await H.until(function () { return document.querySelector('#page .error') || !document.getElementById('page'); }, 2000);
+        began = Date.now();
+        record.error = document.querySelector('#page .error') !== null;
+        record.body = document.body.innerHTML.slice(0, 120);
+        await H.after(3000);
+        H.check(record.error, 'an empty failure: the block says so (.error), the document is not replaced by nothing', record.body);
+        H.check(false, 'then the page reloads', 'no reload within 3 s');
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

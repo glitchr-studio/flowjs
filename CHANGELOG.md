@@ -25,6 +25,30 @@
   and `configure({query_limit: 1})` were stored and read by nothing.
 
   tests/ajaxer-channels.html.
+- **navigation** - a script of the swapped block runs once, as on a page load. With `global_code`
+  on (the default) an inline script ran twice: given to `eval()` (inside `evalScript()`, where its
+  `var` stayed local and a module could not parse), then natively when its fresh copy was put in.
+  Only the copy runs now; one that throws is the browser's uncaught error, and the swap goes on.
+- **navigation** - a link with a `download` attribute is left to the browser, which saves the
+  file under the attribute's name. It was taken by the navigation: its file fetched by XHR, then
+  again by `location.href` as "no page", the name lost.
+- **navigation** - the `<previous>-to-<next>` layout class (`main-to-admin`) stays on `<html>`
+  through the swap, as the swap meant: it spared the class built the other way round
+  (`admin-to-main`) and took the real one off before the new block was in.
+- **navigation** - `lazyload: false` switches the lazy loading off (its runs at
+  `DOMContentLoaded`, at `ready()`, at each swap, and the pictures already watched); the option
+  was read by nothing.
+- **navigation** - `skip_transition_for_cache` (with `use_view_transitions`): a page given back
+  from the history's cache (Back, Forward) is swapped without the view transition; the option
+  was read by nothing.
+- **navigation** - `rescue_reload`: a failure that comes with an empty page (a 500 with nothing in
+  it) no longer replaces the document with nothing - the block says so (`.error`) and the page
+  reloads `rescue_reload` later. The test compared the body with the string `"undefined"`, and a
+  parsed document always has a head: the reload never happened. The value is a duration read as
+  the others (`5000`, `"5s"`, `"300ms"`; it went through `parseDuration`, in seconds, so `"5s"`
+  was 5 ms).
+
+  tests/navigation-swap.html, tests/navigation-options.html, tests/navigation-rescue.html.
 
 ### Removed
 

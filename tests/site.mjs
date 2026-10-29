@@ -62,13 +62,20 @@ const pages = {
     own: () => `<h1>Own</h1><a id="to-one" href="/site/page/one">one</a><a id="to-waiting" href="/site/page/waiting">waiting</a>
         <div id="own-banner" data-cookie-banner hidden><p id="own-words">the site's words</p><button type="button" id="own-accept" data-cookie-accept>yes</button></div>`,
     // A page a script finishes: its row scrolls sideways only a moment after the page is in, each time.
+    // A block with scripts of its own (each must run once, as on a page load), a file to download,
+    // a link to a page of another layout, and a picture loaded lazily.
+    scripted: () => `<h1>Scripted</h1><a id="to-other" href="/site/page/other">other</a><a id="to-file" href="/site/file.txt" download="notes.txt">file</a>
+        <script>window.__runs = (window.__runs || 0) + 1; var __scriptedVar = 'global';</script>
+        <script type="module">window.__moduleRuns = (window.__moduleRuns || 0) + 1;</script>`,
+    other: () => `<h1>Other</h1><a id="to-scripted" href="/site/page/scripted">scripted</a>`,
+    lazy: () => `<h1>Lazy</h1><a id="to-one" href="/site/page/one">one</a><img id="lazy-in-view" data-src="/site/img?h=40&amp;n=2" alt="" width="40" height="40">`,
     built: () => `<h1>Built</h1><a id="to-two" href="/site/page/two">two</a>` + Array.from({ length: 8 }, (_, i) =>
         `<section id="b${i + 1}" class="block sticky-stop">b${i + 1}</section>`).join('\n') + `<div id="row" class="row"><div class="wide">wide</div></div>
         <script>(function () { var wide = document.querySelector('#row .wide'); wide.style.width = '10px'; setTimeout(function () { wide.style.width = ''; }, 150); })();</script>`,
 };
 
-function layout(title, body, { htmlClass = '', extra = '' } = {}) {
-    return `<!doctype html><html class="${htmlClass}"><head>${HEAD}<title>${title}</title>${extra}</head><body><div id="page" data-layout="main">${body}</div></body></html>`;
+function layout(title, body, { htmlClass = '', extra = '', dataLayout = 'main' } = {}) {
+    return `<!doctype html><html class="${htmlClass}"><head>${HEAD}<title>${title}</title>${extra}</head><body><div id="page" data-layout="${dataLayout}">${body}</div></body></html>`;
 }
 
 function send(res, status, body, headers = {}) {
@@ -100,7 +107,7 @@ export async function handle(req, res, url) {
 
     if ((m = path.match(/^\/site\/page\/(\w+)$/)) && pages[m[1]]) {
         const name = m[1];
-        return send(res, 200, layout('Page ' + name, pages[name](), name === 'styled' ? { htmlClass: 'from-server', extra: '<style id="styled-sheet">h1 { color: rgb(1, 2, 3); }</style>' } : {}));
+        return send(res, 200, layout('Page ' + name, pages[name](), name === 'styled' ? { htmlClass: 'from-server', extra: '<style id="styled-sheet">h1 { color: rgb(1, 2, 3); }</style>' } : name === 'other' ? { dataLayout: 'other' } : {}));
     }
     if (path === '/site/echo') {
         const sent = req.method === 'POST' ? fields(await readBody(req), req.headers['content-type']) : [...url.searchParams];
@@ -122,6 +129,12 @@ export async function handle(req, res, url) {
     if (path === '/site/broken') return send(res, 502, '<html><head><title>Bad gateway</title></head><body><h1 id="bare">Bad gateway</h1></body></html>');
     if (path === '/site/error') return send(res, 500, layout('Error', '<h1 id="failure">It failed</h1><a id="to-one" href="/site/page/one">one</a>'));
     if (path === '/site/drop') return req.socket.destroy();
+    // A failure that comes with an empty page.
+    if (path === '/site/empty') return send(res, 500, '');
+    if (path === '/site/file.txt') {
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end('notes');
+    }
     if (path === '/site/slow') {
         await new Promise((f) => setTimeout(f, +url.searchParams.get('ms') || 300));
         return send(res, 200, layout('Slow', '<h1 id="slow">Slow</h1>'));
