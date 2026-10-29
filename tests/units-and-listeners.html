@@ -2,7 +2,8 @@
 <!--
   1.6's fixes from the docs' audit: a percentage is a hundredth (Flow.parseToPixel('15%'), the scroll
   padding in %), "1s" is a second for swipe_timegate (a swipe of 50ms triggers with the default), and a
-  site's own jQuery hashchange handler survives Sticky's unload (the navigation's beforeunload).
+  site's own jQuery hashchange handler survives Sticky's unload (the navigation's beforeunload);
+  Flow.version is package.json's; Sticky.settings declares no option it does not read.
 -->
 <html>
 <head><meta charset="utf-8"><title>units</title>
@@ -28,6 +29,9 @@
         H.check(top > 0 && top <= innerWidth * 0.1 + 1, 'a scroll padding in % is a share, not ten thousand pixels', top);
         document.documentElement.style.scrollPaddingTop = '';
         H.check(Flow.toMilliseconds('1s') === 1000 && Flow.toMilliseconds('250ms') === 250 && Flow.toMilliseconds(400) === 400, 'durations in ms: "1s", "250ms", 400');
+        var pkg = await (await fetch('/package.json', { cache: 'no-store' })).json();
+        H.check(Flow.version === pkg.version, 'Flow.version is package.json\'s version', Flow.version + ' / ' + pkg.version);
+        H.check(!('tick' in Sticky.settings) && !('scrollsnap_start' in Sticky.settings), 'Sticky.settings declares no option it does not read (tick, scrollsnap_start)', Object.keys(Sticky.settings).join());
 
         // A swipe of 50ms, 200px to the right, with the default swipe_timegate ("1s").
         var el = document.getElementById('swipe'), swiped = [];

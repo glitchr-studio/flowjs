@@ -136,14 +136,6 @@ also loads `stops.js`. Loaded, the module:
 dispatches `sticky:ready` on `window`. The load pass marks it ready too: `ready()` is for setting
 options, not a condition for the effects to run.
 
-> [!WARNING]
-> Known defect: at `beforeunload` the module calls `$(window).off("hashchange")`
-> (`src/js/sticky.js:1914`), which removes every jQuery `hashchange` handler of the window, the
-> site's included; and the navigation dispatches `beforeunload` before each swap
-> (`src/js/transparent.js:3178`). A site's `$(window).on('hashchange', fn)` is dropped at the first
-> navigation (checked in headless Chrome: called before a dispatched `beforeunload`, never after),
-> where only the module's own handlers are expected to go. Listen with
-> `window.addEventListener('hashchange', fn)`, which jQuery's `off` does not reach.
 
 ## Options (`Sticky.settings`)
 
@@ -154,23 +146,21 @@ change applies from the next scroll. Durations are read with
 
 | Option | Type | Default | Effect |
 |---|---|---|---|
-| `tick` | duration | `"1ms"` | declared, read by nothing (see the known defect below) |
 | `debounce` | duration | `"500ms"` | how long after a scroll the measurements are forgotten (`Sticky.reset`), and how long after a magnet's way the snap waits before it may act again |
 | `threshold` | duration | `"5000ms"` | `.sticky-bottom`: how long the reader must push against the bottom of the page before the bar shows; how long against the top before it goes |
 | `scrollcatch` | boolean or z-index | `false` | `.sticky-top`: when the header has scrolled to the top, a clone takes its place and the header turns `position: fixed` at that z-index (`true`: its own). `aria-scrollcatch` on the element says it for that one |
-| `scrolllock` | boolean | `true` | during a held way to a magnet, also blocks the wheel and the arrow keys through listeners (see the known defect below: no effect in current browsers) |
+| `scrolllock` | boolean | `true` | during a held way to a magnet, the wheel and the finger move nothing: `wheel` (`mousewheel` where there is no `wheel` event) and `touchmove` listeners on the window, not passive, prevent their default until the page is given back (`Sticky.disableScroll()` / `Sticky.enableScroll()`; `Sticky.allowScrolling()` is false meanwhile). The keys are not blocked: the page's overflow is hidden meanwhile, and a magnet key has its own rules. Checked in Chromium; written against the DOM spec, not checked in Firefox |
 | `scrollhide` | boolean | `true` | `.sticky-top` hides on the way down and shows on the way up (`aria-scrollhide="false"` on one keeps it in place); `.sticky-bottom` is handled only while it is on |
 | `scrollhint` | number 0..1 | `0.25` | `.sticky-bottom`: the share of `threshold` after which the bar shows a hint (class `hint`; a click on it shows the bar); `0`: no hint |
 | `overscroll` | object | `{top: false, bottom: false, left: false, right: false}` | written by the module (with `passive: false`, from the wheel at an edge): the page is pushed past that edge; set by hand for a browser that sends no scroll event there |
 | `passive` | boolean | `true` | `false` lets the module listen to the wheel (`wheel.sticky`, for the overscroll) and turns the magnets' snap on |
 | `scrollpercent` | boolean | `true` | the `.sticky-scrollpercent-*` triggers and their `scrollpercent` events |
 | `scrollsnap` | boolean | `true` | the magnets: the snap (with `passive: false`), the `.sticky-magnet-*` buttons, the keys (with `scrollsnap_keys`) |
-| `scrollsnap_start` | string | `"start"` | read and printed with `debug`; the snap always meets a magnet by its top under the scroll padding |
 | `scrollsnap_proximity` | number 0..1 | `0.01` | the share of the screen a magnet must fill to be a candidate for the snap |
 | `scrollsnap_hold` | boolean | `true` | the way to a magnet holds the scroll (`.sticky-prevent-scroll` on `<html>`); `false`: the reader's gesture stops it. See [A way the reader may take](#a-way-the-reader-may-take-scrollsnap_hold-11) |
 | `scrollsnap_keys` | boolean | `false` | the arrows go from magnet to magnet. See [The arrow keys](#the-arrow-keys-scrollsnap_keys-11) |
 | `swipe` | boolean | `true` | `.sticky-swipe` elements dispatch `sticky.swipe_left` and `sticky.swipe_right` |
-| `swipe_timegate` | number (ms) | `"1s"` | the longest a swipe may take (read with `parseInt`: give a number of ms; see the known defect below) |
+| `swipe_timegate` | duration | `"1s"` | the longest a swipe may take: a number of ms, `"1s"`, `"250ms"` (read with `Flow.toMilliseconds`, 1.6) |
 | `swipe_threshold` | number (px) | `200` | the least a finger must travel sideways for a swipe (and at most 100 px up or down) |
 | `swipehint` | boolean | `true` | `.sticky-swipehint` elements get `sticky-swipehint-reveal` after `swipehint_delay`, lost at their first scroll; `.sticky-swipehint-container` gets an `<img>` of its `data-image` |
 | `swipehint_delay` | duration | `"1s"` | before the hint is revealed |
@@ -204,25 +194,8 @@ is at once). Give them with `Sticky.set()`.
 
 `easein` and `easeout` are read with `parseInt`: `"100px"` is 100, `"2rem"` is 2. Give px.
 
-> [!WARNING]
-> Known defect: `tick` is declared (`src/js/sticky.js:61`) and read nowhere, where an option of
-> `Sticky.settings` is expected to do something.
 
-> [!WARNING]
-> Known defect: `swipe_timegate` is read with `parseInt` (`src/js/sticky.js:677`), so the default
-> `"1s"` is 1 ms and no swipe is ever fast enough: in headless Chrome a 300 px swipe of 50 ms
-> dispatched nothing with the default and `sticky.swipe_right` with `Sticky.set('swipe_timegate', 1000)`,
-> where `"1s"` is expected to mean a second. Set a number of milliseconds.
 
-> [!WARNING]
-> Known defect: `scrolllock` goes through `Sticky.enableScroll()` / `Sticky.disableScroll()`
-> (`src/js/sticky.js:596-638`), which pass jQuery-style namespaced names (`wheel.preventDefault`,
-> `touchmove.preventDefault`, `keydown.preventDefault`) to the native `addEventListener`, where no
-> such event exists, and are inverted (`enableScroll` adds the blocking listeners, at the end of a
-> way). The only real one is a `DOMMouseScroll` listener `enableScroll` adds and nothing removes:
-> nothing is blocked in Chromium and WebKit; in a browser that still fires `DOMMouseScroll` the
-> wheel would be blocked after the first way (not checked). The way is held by
-> `.sticky-prevent-scroll` alone. `Sticky.allowScrolling()` always answers true.
 
 ## Classes and attributes (Sticky)
 

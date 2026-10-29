@@ -59,8 +59,6 @@
         }
     };
 
-    var scrollState = {};
-
     var Sticky = window.Sticky = {};
     Sticky.version = '1.7.0';
 
@@ -68,7 +66,6 @@
 
         //
         // Time control
-        "tick"  : "1ms"  ,
         "debounce": "500ms"  ,
         "threshold": "5000ms",
 
@@ -90,7 +87,6 @@
         "scrollpercent"        : true   ,
 
         "scrollsnap"           : true   ,
-        "scrollsnap_start"     : "start", //start, center, end
         "scrollsnap_proximity" : 0.01   ,
         "scrollsnap_hold"      : true   , // the way to a magnet holds the scroll; false: the reader's gesture stops it
         "scrollsnap_keys"      : false  , // the arrow keys go from magnet to magnet
@@ -579,57 +575,44 @@
         if (snap !== undefined) Sticky.scrollTo({top:snap.offsetTop, left:snap.offsetLeft, easing:Settings["smoothscroll_easing"],  duration: Settings["smoothscroll_duration"], speed: Settings["smoothscroll_speed"]}, callback, scroller);
     }
 
-    scrollState = {};
+    // scrolllock: during a held way to a magnet, the reader's wheel and finger move nothing -
+    // real listeners on the scroller (the window by default), not passive, that prevent their
+    // default: wheel (mousewheel where the browser has no wheel event) and touchmove; the
+    // momentum of the wheel that started the way, and a finger where the page's hidden overflow
+    // does not stop it (iOS), are not taken for the reader's. disableScroll() adds them, once
+    // per scroller; enableScroll() takes them off. The keys are not blocked: the page's overflow
+    // is hidden meanwhile (.sticky-prevent-scroll), and a magnet key has its own rules (one past
+    // the last magnet is the browser's). (Up to 1.6.0 the names were jQuery-style namespaced
+    // ones, "wheel.preventDefault", which the native addEventListener takes for events that
+    // never fire; the two functions were inverted; and a DOMMouseScroll listener was added at
+    // each way's end and never removed.)
+    var scrollLocks = new Map();
+
+    /** False while the scroller (the window by default) is locked by disableScroll(). */
     Sticky.allowScrolling = function(el = window)
     {
-        return el in scrollState ? scrollState[el] || true : true;
+        return !scrollLocks.has(el);
     }
 
     Sticky.enableScroll = function(el = window) {
 
-        // left: 37, up: 38, right: 39, down: 40,
-        // spacebar: 32, pageup: 33, pagedown: 34, end: 35, home: 36
-        var keys = {37: 1, 38: 1, 39: 1, 40: 1};
-
-        function preventDefault(e) { e.preventDefault(); }
-        function preventDefaultForScrollKeys(e) {
-            if (keys[e.keyCode]) {
-                preventDefault(e);
-                return false;
-            }
-        }
-
-        var wheelEvent = 'onwheel' in document.createElement('div') ? 'wheel.preventDefault' : 'mousewheel.preventDefault';
-
-        el.addEventListener('DOMMouseScroll', preventDefault, false); // older FF
-        el.addEventListener(wheelEvent, preventDefault); // modern desktop
-        el.addEventListener('touchmove.preventDefault', preventDefault); // mobile
-        el.addEventListener('keydown.preventDefault', preventDefaultForScrollKeys, false);
-        scrollState[el] = true;
+        var lock = scrollLocks.get(el);
+        if (!lock) return;
+        scrollLocks.delete(el);
+        lock.forEach(function (listener) { el.removeEventListener(listener[0], listener[1], listener[2]); });
     }
 
     Sticky.disableScroll = function(el = window) {
 
-        // left: 37, up: 38, right: 39, down: 40,
-        // spacebar: 32, pageup: 33, pagedown: 34, end: 35, home: 36
-        var keys = {37: 1, 38: 1, 39: 1, 40: 1};
+        if (scrollLocks.has(el)) return;
 
-        function preventDefault(e) { e.preventDefault(); }
-        function preventDefaultForScrollKeys(e) {
-            if (keys[e.keyCode]) {
-                preventDefault(e);
-                return false;
-            }
-        }
+        var options = { passive: false };
+        var prevent = function (e) { if (e.cancelable) e.preventDefault(); };
+        var wheel = 'onwheel' in document.createElement('div') ? 'wheel' : 'mousewheel';
+        var lock = [[wheel, prevent, options], ['touchmove', prevent, options]];
 
-        var wheelEvent = 'onwheel' in document.createElement('div') ? 'wheel.preventDefault' : 'mousewheel.preventDefault';
-
-        el.removeEventListener('DOMMouseScroll.preventDefault', preventDefault, false);
-        el.removeEventListener(wheelEvent, preventDefault);
-        el.removeEventListener('touchmove.preventDefault', preventDefault);
-        el.removeEventListener('keydown.preventDefault', preventDefaultForScrollKeys, false);
-
-        scrollState[el] = false;
+        lock.forEach(function (listener) { el.addEventListener(listener[0], listener[1], listener[2]); });
+        scrollLocks.set(el, lock);
     }
 
     Sticky.getNextSnap = function(el = window)
@@ -775,9 +758,7 @@
     var scrollSnapDebounce = false;
     Sticky.onScrollSnap = function (e)
     {
-        if (Settings.debug && (scrollSnap != undefined || scrollSnapStart != undefined || scrollSnapProximity != undefined)) {
-            console.log("Sticky magnetic:", scrollSnap, scrollSnapStart, scrollSnapProximity);
-        }
+        if (Settings.debug) console.log("Sticky magnetic:", Sticky.get("scrollsnap"), Sticky.get("scrollsnap_proximity"));
 
         if(!Settings.ready) return;
 
@@ -786,7 +767,6 @@
         var scrollSnap = Sticky.get("scrollsnap");
         if(!scrollSnap) return;
 
-        var scrollSnapStart = Sticky.get("scrollsnap_start");
         var scrollSnapProximity  = Sticky.get("scrollsnap_proximity");
 
         // After a way the reader could take: not before the scroll has rested.
@@ -800,7 +780,7 @@
         var magnet     = currMagnet;
 
         var scroller = $(e.target).closestScrollable()[0];
-        if(!e.screen.userScroll || !Sticky.allowScrolling()) return;
+        if(!e.screen.userScroll) return;
 
         var st = e.scrollY.top;
         var roll   = st > lastScrollTop;

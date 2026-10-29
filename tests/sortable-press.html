@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  StickySortable: a press released before the drag threshold is a click, and is forgotten wherever
+  it is released - on the list, outside it (a press on its edge, the pointer let go a few px out),
+  or cancelled by the browser (pointercancel): the next move of that pointer over the list starts
+  no drag. Pointer capture is stubbed, as in sortable.html. Opened by tests/run.mjs; verdict in
+  #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>sortable press</title>
+<style>
+    body { margin: 0; }
+    #list { width: 300px; margin: 0; padding: 0; }
+    li { list-style: none; height: 40px; margin: 0; padding: 0; border: 1px solid #999; }
+    #result { position: fixed; top: 0; right: 0; margin: 0; }
+</style>
+</head>
+<body>
+<ul id="list">
+    <li data-sortable-item id="i1">one</li>
+    <li data-sortable-item id="i2">two</li>
+    <li data-sortable-item id="i3">three</li>
+</ul>
+<div id="outside" style="height: 200px"></div>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/sortable.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        Element.prototype.setPointerCapture = function () {};
+        Element.prototype.releasePointerCapture = function () {};
+        var list = document.getElementById('list');
+        var outside = document.getElementById('outside');
+        $(list).stickySortable({});
+        var sortable = list._stickySortable;
+        function pointer(type, target, x, y, buttons) {
+            target.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'mouse', button: 0, buttons: buttons, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+        }
+        var item = document.getElementById('i3');
+        var r = item.getBoundingClientRect();
+        var x = r.left + 5, y = r.bottom - 2;
+
+        // Pressed on the list's edge, released 3 px out.
+        pointer('pointerdown', item, x, y, 1);
+        pointer('pointerup', outside, x, y + 3, 0);
+        pointer('pointermove', item, x, y - 30, 0);
+        await H.frame();
+        H.check(!sortable.dragging && !item.classList.contains('is-dragging'), 'a press released outside the list is forgotten: the next move drags nothing', item.className);
+        pointer('pointerup', document.body, x, y - 30, 0);
+
+        // Cancelled by the browser.
+        pointer('pointerdown', item, x, y, 1);
+        pointer('pointercancel', item, x, y, 0);
+        pointer('pointermove', item, x, y - 30, 1);
+        await H.frame();
+        H.check(!sortable.dragging, 'a press the browser cancelled is forgotten too', item.className);
+        pointer('pointerup', document.body, x, y - 30, 0);
+
+        // A move with no button held is no drag either.
+        pointer('pointerdown', item, x, y, 1);
+        pointer('pointermove', item, x, y - 30, 0);
+        await H.frame();
+        H.check(!sortable.dragging, 'a move with no button held starts no drag');
+        pointer('pointerup', document.body, x, y - 30, 0);
+
+        // A press that moves past the threshold still drags.
+        pointer('pointerdown', item, x, y, 1);
+        pointer('pointermove', item, x, y - 30, 1);
+        await H.frame();
+        H.check(sortable.dragging === item, 'a press held past the threshold drags', String(sortable.dragging && sortable.dragging.id));
+        pointer('pointerup', document.body, x, y - 30, 0);
+        await H.frame();
+        H.check(!sortable.dragging, 'and lets go at its release');
+
+        // A drag the browser cancels: the item goes back, nothing is told.
+        var changes = 0;
+        sortable.options.onChange = function () { changes++; };
+        var first = document.getElementById('i1');
+        var fr = first.getBoundingClientRect();
+        pointer('pointerdown', first, fr.left + 5, fr.top + 5, 1);
+        pointer('pointermove', first, fr.left + 5, fr.top + 100, 1);
+        pointer('pointermove', document.body, fr.left + 5, fr.top + 110, 1);
+        await H.frame();
+        H.check(sortable.dragging === first, 'a drag under way', String(sortable.dragging && sortable.dragging.id));
+        pointer('pointercancel', document.body, fr.left + 5, fr.top + 110, 0);
+        await H.frame();
+        var order = Array.prototype.map.call(list.querySelectorAll('[data-sortable-item]'), function (el) { return el.id; }).join(',');
+        H.check(!sortable.dragging && order === 'i1,i2,i3' && changes === 0 && !list.querySelector('.' + sortable.options.placeholderClass) && first.style.position === '', 'a pointercancel ends it: the item back in its place, no onChange', order + ' ' + changes);
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

@@ -22,11 +22,9 @@ in a page it is loaded by a `<script>` before the modules, which find it as `win
 Loaded twice (two bundles of one page), the second copy finds `window.Flow` (`Flow.core === true`)
 and hands it back: there is one core per page, one set of listeners, one frame. Each module
 registers itself on it: `Flow.navigation`, `Flow.sticky`, `Flow.stops`, `Flow.sortable`,
-`Flow.ajaxer`, `Flow.cookie`.
+`Flow.ajaxer`, `Flow.cookie`. `Flow.version` is the package's version, as `package.json` says
+(tests/units-and-listeners.html checks the two agree).
 
-> [!WARNING]
-> Known defect: `Flow.version` reads `1.3.1` (`src/js/core.js:28`), where the package is at
-> 1.5.4: the number was not raised with the releases. Read the version from `package.json`.
 
 ## jQuery
 
@@ -59,17 +57,10 @@ Every duration option of the modules (`"250ms"`, `"2s"`) is read with `parseDura
 |---|---|
 | `Flow.parseToPixel(value, el)` | px from `"90"`, `"90px"`, `"2rem"` (the root's font size), `"1.5em"` (the font size of `el`'s parent), `"15%"`; several separated by a comma and a space: the largest. `undefined` gives `undefined` |
 | `Flow.toPixels(value, el, fallback)` | one value to px: `"90"`, `"90px"`, `"2rem"`, `"1.5em"` (the font size of `el` itself); empty or unreadable gives `fallback`. A `%` is not read: `"15%"` gives 15 |
-| `Flow.remToPixel(rem)`, `Flow.emToPixel(em, el)`, `Flow.percentToPixel(p, el)` | the three conversions `parseToPixel` uses |
+| `Flow.remToPixel(rem)`, `Flow.emToPixel(em, el)`, `Flow.percentToPixel(p, el)` | the three conversions `parseToPixel` uses; a percentage is a hundredth of `el`'s width (the window's without one): `'15%'` of 400 px is 60 |
 | `Flow.scrollPadding(el)` | the `scroll-padding` of an element (the `<html>` element by default, also for `window` and `document`), `{top, left, right, bottom}` in px, each side read with `parseToPixel` (0 when unreadable) |
 | `Flow.viewport()` | the viewport's `{width, height}`: the larger of the root's client size and the window's inner size, read once per frame |
 
-> [!WARNING]
-> Known defect: a percentage is multiplied by the width without being divided by 100:
-> `Flow.parseToPixel('15%')` gives 15 times the window's width (15000 in a window 1000 px wide),
-> `percentToPixel` likewise, and so a `scroll-padding-top: 10%` on `<html>` reads as
-> `Flow.scrollPadding().top === 10000` (checked in headless Chrome), where 15 % of the width
-> (150) and a tenth of it (100) are expected. Every module that reads the scroll padding or
-> `data-sticky-offset-*` through it inherits this; write the scroll padding in px, rem or em.
 
 ## Scrollers
 
@@ -156,7 +147,7 @@ Flow.scrollTo(window, { top: 1200, duration: '400ms', easing: 'swing' }, functio
 | `top`, `left` | number (px) | where the scroller is | the place to go to, clamped to what the scroller can reach |
 | `duration` | duration | `0` | the time of the movement (`"250ms"`, `"1s"`); 0 or no jQuery: at once |
 | `duration-x`, `duration-y` | duration | `duration` | the time along each axis: the movement goes down first, then across, each only when there is a way to go |
-| `speed` | number (px/s) | `0` | instead of a duration: each axis takes its distance divided by the speed |
+| `speed` | number (px/s) | `0` | instead of a duration: each axis takes its way to go divided by the speed, up as down (from 3000 to 2000 at 1000 px/s: a second) |
 | `easing` | string | `'swing'` | a jQuery easing (`swing`, `linear`, or one a plugin adds) |
 | `debounce` | number (ms) | `0` | the end (the callback, `user-scroll` given back) comes that many ms after the movement stopped |
 | `hold` | boolean | `false` | the reader's wheel, finger or press does not stop the movement |
@@ -169,25 +160,17 @@ The callback is called once, however the movement ends, with `{completed, reason
 | `interrupted` | `false` | the reader took over (a wheel, a finger, a press) |
 | `replaced` | `false` | another `Flow.scrollTo` of the same scroller began |
 
+The reader's wheel, finger or press stops a movement (unless `hold`): on the page through the
+core's one interrupt listener on `window`, and on an element scroller through a listener the
+movement adds to that element for its own time (`Flow.onInterrupt(el, ...)`, taken off when it
+ends) - a script does not need to register `Flow.onInterrupt(el, Flow.release)` for it.
+
 While it moves the scroller's `user-scroll` is false; it is true again at the end unless the
 callback began another movement. An animation something else stopped (a site's own `.stop()`,
 frames that never came) is not waited for: a second past its time, the scroller is put where it
 was going and the movement ends `arrived`.
 
-> [!WARNING]
-> Known defect: with `speed`, a movement up (or left) to a place other than the top (or the left
-> edge) takes the time of the whole distance from the top, not of the way to go
-> (`src/js/core.js:479-480`): from 3000 to 2000 at 1000 px/s it took 3012 ms in headless Chrome,
-> where 1 s is expected; down, from 1000 to 2000, it took 1014 ms.
 
-> [!WARNING]
-> Known defect: the core gives the scroll back only on the window: its one interrupt listener is
-> on `window` (`src/js/core.js:565`), and `Flow.release` then stops the page's movement. A
-> `Flow.scrollTo` of an element scroller goes on under a wheel on that element (it ended
-> `arrived` in headless Chrome), where the reader's wheel, finger or press is expected to stop it.
-> The sticky module registers `Flow.onInterrupt(element, Flow.release)` for the scrollers it
-> animates; a script of a site's does the same for its own:
-> `Flow.onInterrupt(box, Flow.release)`.
 
 ## The hash
 

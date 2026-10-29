@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  scrolllock (on by default): during a held way to a magnet the reader's wheel and finger move
+  nothing - a wheel and a touchmove dispatched on the way have their default prevented,
+  Sticky.allowScrolling() is false; the keys are left (tests/sticky-magnet-keys.html); once the
+  page is given back the wheel and the finger are the reader's again and no listener is left.
+  Against the DOM spec (wheel and touchmove are cancelable; a listener that prevents them must not
+  be passive); Firefox's legacy DOMMouseScroll is not listened to. Opened by tests/run.mjs; verdict
+  in #result.
+-->
+<html>
+<head>
+<meta charset="utf-8"><title>sticky scrolllock</title>
+<style>
+    html { scroll-behavior: auto; scroll-padding-top: 0; }
+    body { margin: 0; }
+    section { height: 100vh; }
+    .sticky-prevent-scroll { overflow: hidden; block-size: 100%; }
+    #result { position: fixed; bottom: 0; left: 0; margin: 0; }
+</style>
+</head>
+<body>
+<section id="one" class="sticky-magnet">One</section>
+<section id="two" class="sticky-magnet">Two</section>
+<section id="three" class="sticky-magnet">Three</section>
+<pre id="result">pending</pre>
+<script src="jquery.js"></script>
+<script src="harness.js"></script>
+<script src="../src/js/core.js"></script>
+<script src="../src/js/sticky.js"></script>
+<script>
+    (async function () {
+        var H = Harness;
+        var html = document.documentElement;
+        await new Promise(function (r) { window.addEventListener('load', r, { once: true }); });
+        Sticky.ready({ debounce: '200ms', smoothscroll_duration: '400ms' });
+        await H.after(50);
+        var count = function () { var l = Harness.listeners(/^window (wheel|touchmove|keydown)$/); return (l['window wheel'] || 0) + (l['window touchmove'] || 0) + (l['window keydown'] || 0); };
+        var before = count();
+        var prevented = function (event, target) { (target || document.body).dispatchEvent(event); return event.defaultPrevented; };
+        var wheel = function () { return new WheelEvent('wheel', { deltaY: 40, bubbles: true, cancelable: true }); };
+        var touch = function () { return new TouchEvent('touchmove', { bubbles: true, cancelable: true }); };
+        var key = function () { return new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }); };
+
+        H.check(Sticky.allowScrolling() === true && !prevented(wheel()), 'before a way: the wheel is the reader\'s');
+        Sticky.toMagnet(window, { top: document.getElementById('two').offsetTop });
+        await H.after(100);
+        H.check(html.classList.contains('sticky-prevent-scroll'), 'a held way is under way', html.className);
+        H.check(Sticky.allowScrolling() === false, 'Sticky.allowScrolling() is false on the way');
+        H.check(prevented(wheel()), 'a wheel on the way is prevented');
+        H.check(prevented(touch()), 'a touchmove on the way is prevented');
+        H.check(!prevented(key()), 'an ArrowDown on the way is not blocked by the lock');
+        await H.until(function () { return !html.classList.contains('sticky-prevent-scroll'); }, 3000);
+        await H.after(50);
+        H.check(Sticky.allowScrolling() === true, 'once given back, allowScrolling() is true again');
+        H.check(!prevented(wheel()) && !prevented(touch()) && !prevented(key()), 'and the wheel, a finger and the keys are the reader\'s');
+        H.check(count() === before, 'no listener left', JSON.stringify(Harness.listeners(/^window (wheel|touchmove|keydown|DOMMouseScroll)$/)));
+        H.check(!Harness.listeners(/DOMMouseScroll/)['window DOMMouseScroll'], 'no DOMMouseScroll listener');
+        H.done();
+    })().catch(function (e) { Harness.check(false, 'run', e && e.stack || e); Harness.done(); });
+</script>
+</body>
+</html>

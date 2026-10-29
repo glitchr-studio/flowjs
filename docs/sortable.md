@@ -109,14 +109,11 @@ made afterwards.
    on a target) or `onChange` (the index changed).
 
 A press released before the threshold is a click: nothing moves, a link in the item is followed.
+The press is forgotten wherever it ends - a `pointerup` on the list or anywhere else in the
+document, a `pointercancel`, or a move with no button held - so a later move of the pointer over
+the list starts no drag. A drag the browser cancels (`pointercancel`: the page took the gesture)
+puts the item back where it was and calls neither `onChange` nor `onMerge`.
 
-> [!WARNING]
-> Known defect: a press released outside the container before the threshold leaves the press
-> watched (only a `pointerup` on the container forgets it), so a later move of the same pointer
-> over the container, past the threshold, starts a drag with no button held: the item follows the
-> mouse until the next release. Checked in headless Chrome with a press on the last item's bottom
-> edge, 3 px down out of the list, a release, then a move back over the list. A `pointercancel`
-> during a drag is not handled either. Expected: a release anywhere ends the press.
 
 ## The placeholder
 

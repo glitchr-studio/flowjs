@@ -451,6 +451,7 @@
         if (entry.move !== move) return;
         entry.move = null;
         clearTimeout(move.watch);
+        if (move.interrupt) Flow.offInterrupt(el, move.interrupt);
         move.end(reason);
     }
 
@@ -489,9 +490,11 @@
         var durationX = 1000 * Flow.parseDuration(dict['duration-x'] || dict.duration || 0);
         var durationY = 1000 * Flow.parseDuration(dict['duration-y'] || dict.duration || 0);
 
+        // At a speed, each axis takes its way to go over the speed, up as down (up to 1.6.0 a
+        // movement up, or left, to anywhere but 0 took the time of the whole position).
         if (speed) {
-            var distanceX = el.scrollLeft < scrollLeft || scrollLeft === 0 ? Math.abs(scrollLeft - el.scrollLeft) : el.scrollLeft;
-            var distanceY = el.scrollTop <= scrollTop || scrollTop === 0 ? Math.abs(scrollTop - el.scrollTop) : el.scrollTop;
+            var distanceX = Math.abs(scrollLeft - el.scrollLeft);
+            var distanceY = Math.abs(scrollTop - el.scrollTop);
             durationX = 1000 * distanceX / speed;
             durationY = 1000 * distanceY / speed;
             duration = durationX + durationY;
@@ -521,6 +524,13 @@
                 }
             }
         };
+
+        // The reader's wheel, finger or press on an element scroller stops its movement, as on the
+        // page (whose one listener is the window's, below): listened to for the movement's time.
+        if (Flow.normalize(el) !== window) {
+            move.interrupt = function (event) { release(event, el); };
+            Flow.onInterrupt(el, move.interrupt);
+        }
 
         prop(el, 'user-scroll', false);
         mark(el, true);
