@@ -132,7 +132,7 @@
         H.check(H.near(y(), shortEnd), 'with data-sticky-short-end="0.1", ArrowDown goes to its end', y() + ' vs ' + shortEnd);
 
         // Gentle stops (reach and bands 140px, 1.5.3): a short stop's band below counts from its top, as for a stop
-        // the screen holds. 31px taller (panoboutique: top 1695, end 1726, a gesture from 1444 landing at 1804): back
+        // the screen holds. 31px taller (one site: top 1695, end 1726, a gesture from 1444 landing at 1804): back
         // to its top - 1.5.2 left it there, between two sections, the next one out of reach.
         var el = document.getElementById('short');
         el.removeAttribute('data-sticky-short-end');
@@ -148,7 +148,7 @@
         H.scroll(top('short') + 20); await H.after(SETTLE * 3);
         H.check(H.near(y(), top('short') + 20), 'its extra pixels are read freely', y() + ' vs ' + (top('short') + 20));
 
-        // 123px taller (brieucvourch, with screens: top 832, end 955): 130px down, past its end inside its band, back
+        // 123px taller (another site, with screens: top 832, end 955): 130px down, past its end inside its band, back
         // to its top; 150, 180 and 210px down (982, 1012, 1042), past its band, the next stop is out of reach: the page
         // stays, as below a section of a screen's height.
         stops.options.screens = true;

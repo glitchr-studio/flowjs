@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.3 - 2026-11-14
+
+No behaviour change from 1.6.2: the changelog no longer names the sites where a defect was seen, and
+`Flow.version` says the package version again (1.6.2 still said 1.6.1).
+
 ## 1.6.1 - 2026-10-30
 
 ### Fixed
@@ -176,7 +181,7 @@
   still be one the glide went through. The glide took it for another's scroll
   and gave up at the first frame that moved more than 2px; the rest that
   followed glided again from there, and the page went to its stop by 10-20px
-  steps for seconds without a finger on the screen (anaelletourret's home on
+  steps for seconds without a finger on the screen (a site's home page on
   an iPhone). A position the glide went through in the last 150ms is now its
   own, and a scroll that is not - nor a reader's (a finger, a wheel, a press
   stop a glide as before) - leaves the page where it put it, not glided again
@@ -192,7 +197,7 @@
   further down, on to the next stop, within the `reach`. With 1.5.2 such a
   rest went on to the next stop whatever the band, and with a `reach` that
   stop was out of it: the page stayed between two sections, 78px past the end
-  of panoboutique's third section (31px taller than a screen, reach and bands
+  of a page's third section (31px taller than a screen, reach and bands
   140px). Its extra pixels are still read freely. tests/stops-ends.html
   (reach and bands 140px: 31px and 123px taller, back to its top inside its
   band, staying past it with the next stop out of reach, on without a reach).
@@ -219,7 +224,7 @@
   tall stop's end, a key goes on to the next stop rather than making that short
   step to the end; up, a step that would rest less than a quarter of a screen
   under the stop's top goes to the top. With 1.5.0 a section 173px taller than
-  a screen took a screen, then 173px, then the next section (anaelletourret's
+  a screen took a screen, then 173px, then the next section (a page of
   albums). tests/stops-screens.html.
 
 ## 1.5.0 - 2026-10-24
