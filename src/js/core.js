@@ -28,7 +28,7 @@
 
     var document = window.document;
 
-    var Flow = { core: true, version: '1.6.3' };
+    var Flow = { core: true, version: '1.6.4' };
 
     // ── jQuery ───────────────────────────────────────────────────────────
     // A bundler's ProvidePlugin gives the bare `jQuery` identifier; a page
@@ -254,11 +254,16 @@
         this.pending = [];
         this.bound = false;
         var self = this;
+        this.position = null;
         this.handler = function (event) {
             if (!coalesce) {
                 self.fns.slice().forEach(function (fn) { fn.call(target, event, target); });
                 return;
             }
+            // A scroll's position is read here, as the event comes - the page laid out since the last frame - and
+            // handed to the frame's functions: read by them in the frame, after another one changed the page, it
+            // made the browser lay the page out again on the spot.
+            if (self.positioned) self.position = scrolledTo(target);
             self.pending[self.pending.length] = event;
             Flow.frame(self.flush);
         };
@@ -266,7 +271,8 @@
             var events = self.pending;
             self.pending = [];
             var last = events[events.length - 1];
-            self.fns.slice().forEach(function (fn) { fn.call(target, last, target); });
+            var position = self.position;
+            self.fns.slice().forEach(function (fn) { fn.call(target, last, target, position); });
             if (self.after) self.after(target);
         };
     }
@@ -286,6 +292,12 @@
         Flow.cancelFrame(this.flush);
     };
 
+    /** {x, y}: where the scroller is scrolled to - the window's scrollX and scrollY for the page. */
+    function scrolledTo(target) {
+        if (target === window) return { x: window.scrollX || window.pageXOffset || 0, y: window.scrollY || window.pageYOffset || 0 };
+        return { x: target.scrollLeft, y: target.scrollTop };
+    }
+
     var channels = { scroll: [], interrupt: [] };
     function channel(kind, scroller, types, options, coalesce) {
         var list = channels[kind];
@@ -295,9 +307,14 @@
         return made;
     }
 
-    /** fn(event, scroller) once per frame in which the scroller scrolled. The window for the page. */
+    /**
+     * fn(event, scroller, position) once per frame in which the scroller scrolled. The window for the page. position
+     * is {x, y}, where the scroller was as its last scroll event came: what to read in the frame rather than
+     * scrollY or scrollTop, which make the browser lay the page out again when something changed it before.
+     */
     Flow.onScroll = function (scroller, fn) {
         var made = channel('scroll', Flow.normalize(scroller), ['scroll'], { passive: true }, true);
+        made.positioned = true;
         made.after = heard;
         made.add(fn);
         return fn;

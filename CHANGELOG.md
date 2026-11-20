@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.4 - 2026-11-20
+
+### Changed
+
+- **core** - `Flow.onScroll` callbacks receive a third argument, `position` (`{x, y}`): where the
+  scroller was as its last scroll event came, read by the channel's one native listener. Optional:
+  callbacks taking two arguments are unchanged.
+
+### Fixed
+
+- **stops** - `progress()`, told at every frame of a scroll, reads the scroll position heard with
+  the scroll event instead of `scrollY`. Read in the frame, after the page's own frame work had
+  changed the page (a class toggled, an element added), `scrollY` made the browser lay the page out
+  again on the spot: 250 ms of forced layouts over three seconds of scrolling on a busy machine, felt
+  as a scroll that lags. The decisions (a rest, a glide, a key) still read the scroll live.
+
 ## 1.6.3 - 2026-11-14
 
 No behaviour change from 1.6.2: the changelog no longer names the sites where a defect was seen, and

@@ -398,6 +398,9 @@
 
         this.onScroll = this.onScroll.bind(this);
         this.onInterrupt = this.onInterrupt.bind(this);
+
+        // The scroll position as the scroll event left it (see top()).
+        this.position = null;
         this.onFocus = this.onFocus.bind(this);
         this.onResize = this.onResize.bind(this);
         this.settle = this.settle.bind(this);
@@ -440,6 +443,7 @@
 
     Stops.prototype.detach = function () {
         Flow.offScroll(this.scroller, this.onScroll);
+        this.position = null;
         Flow.offInterrupt(this.scroller, this.onInterrupt);
         this.focusTarget.removeEventListener('focusin', this.onFocus, true);
         Flow.offResize(this.onResize);
@@ -468,6 +472,11 @@
 
     /** The scroll position along the axis: scrollTop, or scrollLeft for 'x'. */
     Stops.prototype.top = function () {
+        return this.live();
+    };
+
+    /** The scroll position read from the scroller now. */
+    Stops.prototype.live = function () {
         if (this.horizontal) return this.isWindow ? (window.scrollX || window.pageXOffset || 0) : this.scroller.scrollLeft;
         return this.isWindow ? (window.scrollY || window.pageYOffset || 0) : this.scroller.scrollTop;
     };
@@ -863,7 +872,14 @@
         }
     };
 
-    Stops.prototype.onScroll = function () {
+    Stops.prototype.onScroll = function (event, scroller, position) {
+        // Kept for the rest of this frame only, for progress(): everything else reads the scroll live.
+        if (position) {
+            var self = this;
+            this.position = this.horizontal ? position.x : position.y;
+            clearTimeout(this.positionTimer);
+            this.positionTimer = setTimeout(function () { self.position = null; }, 0);
+        }
         var y = this.top();
         var step = y > this.last ? 1 : (y < this.last ? -1 : 0);
 
@@ -1152,7 +1168,12 @@
             return null;
         }
 
-        var y = this.top();
+        // Where the scroll was as its event came, when this is the frame it was heard in: read live here, after the
+        // page's own frame work changed the page (a class toggled, an element added), scrollY made the browser lay the
+        // page out again on the spot - at every frame of a scroll, 250 ms of a page's forced layouts over three
+        // seconds of scrolling on a busy machine. A progress told a step late is still the scroll's; the decisions
+        // (a rest, a glide, a key) read it live.
+        var y = this.position !== null ? this.position : this.top();
         var i = 0;
         while (i < stops.length - 2 && y >= stops[i + 1].top) i++;
 

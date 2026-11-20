@@ -84,7 +84,7 @@ under their finger.
 
 | Function | Calls |
 |---|---|
-| `Flow.onScroll(scroller, fn)` | `fn(event, scroller)` once per frame in which the scroller scrolled (`scroll`, passive). The window for the page. Returns `fn` |
+| `Flow.onScroll(scroller, fn)` | `fn(event, scroller, position)` once per frame in which the scroller scrolled (`scroll`, passive). The window for the page. `position` is `{x, y}`, where the scroller was as its last scroll event came: read it rather than `scrollY` or `scrollTop`, which lay the page out again when something changed it earlier in the frame. Returns `fn` |
 | `Flow.offScroll(scroller, fn)` | stops; the native listener goes with the last callback |
 | `Flow.onInterrupt(scroller, fn)` | `fn(event, scroller)` at once when the reader takes over on the scroller: `wheel`, `touchstart` or `mousedown` (`Flow.INTERRUPT`), passive |
 | `Flow.offInterrupt(scroller, fn)` | stops |
@@ -96,9 +96,10 @@ listeners of a scroller that left the page with the page the navigation swapped 
 kept, each page visited would stay in memory through them.
 
 ```js
-var onScroll = Flow.onScroll(window, function (event, scroller) {
-    var top = Flow.element(scroller).scrollTop;      // read in the frame, after layout
-    progress.style.width = 100 * top / (document.documentElement.scrollHeight - innerHeight) + '%';
+var onScroll = Flow.onScroll(window, function (event, scroller, position) {
+    // position.y: read as the scroll event came. scrollTop read here, after another function of the frame
+    // changed the page, would make the browser lay it out again on the spot.
+    progress.style.width = 100 * position.y / (document.documentElement.scrollHeight - innerHeight) + '%';
 });
 // later
 Flow.offScroll(window, onScroll);
