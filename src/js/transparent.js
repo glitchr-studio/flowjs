@@ -3301,6 +3301,12 @@
         $(Transparent.html).stop();
 
         Transparent.html.addClass(Transparent.state.LOADING);
+        // Back or Forward is marked before the page reacts to the navigation
+        // (transparent:pre-active), so a host's own curtain can stay down for
+        // a step through the history: the page the reader is going back to is
+        // one they have already seen.
+        if (e.type == Transparent.state.POPSTATE)
+            Transparent.html.addClass(Transparent.state.POPSTATE);
         Transparent.activeIn();
 
         function isJsonResponse(str) {
@@ -3629,7 +3635,9 @@
             // so it hands over to `active-out` without a frame in between
             // where neither is set - that gap would flash the swapped-in page
             // before its own entrance.
-            var exitMs = parseInt(Settings["exit_duration"], 10) || 0;
+            // Not for Back or Forward: a step through the history is expected
+            // at once, as the browser's own buttons give it everywhere else.
+            var exitMs = e.type == Transparent.state.POPSTATE ? 0 : (parseInt(Settings["exit_duration"], 10) || 0);
             if (exitMs > 0) {
 
                 Transparent.html.addClass(Transparent.state.EXITING);
@@ -4048,6 +4056,20 @@
         if(Settings.debug) console.debug("Transparent is running..");
 
         window.onpopstate   = __main__; // Onpopstate pop out straight to previous page.. this creates a jump while changing pages with hash..
+
+        // Back and Forward between the pages swapped in place: the positions
+        // are put back by the swap (the response cache keeps them). Left to
+        // the browser, Safari scrolled the page being left to the position of
+        // the one coming, before the swap - the wrong page showed, at the
+        // wrong height, for the whole exit. The browser keeps its own
+        // restoration for the documents it loads itself: "auto" again as this
+        // one goes (a reload, a page of another site and back), "manual" again
+        // when it comes back from the back-forward cache.
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+            window.addEventListener('pagehide', function() { history.scrollRestoration = 'auto'; });
+            window.addEventListener('pageshow', function() { history.scrollRestoration = 'manual'; });
+        }
         window.onhashchange = __main__;
 
         // onbeforeunload confirmation REMOVED. It produced spurious "are you

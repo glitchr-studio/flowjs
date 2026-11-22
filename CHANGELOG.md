@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.5 - unreleased
+
+### Fixed
+
+- **navigation** - Back and Forward answer at once: no `exit_duration` window before the swap, and
+  `html.popstate` is set before `transparent:pre-active`, so a host's own curtain can stay down for a
+  step through the history. The browser's scroll restoration is off (`history.scrollRestoration =
+  "manual"`) while pages are swapped in place - Safari scrolled the page being left to the position of
+  the page coming, before the swap - and back to `"auto"` as the document goes (`pagehide`), so a
+  reload or a return from another site keeps the browser's own.
+
 ## 1.6.4 - 2026-11-20
 
 ### Changed
