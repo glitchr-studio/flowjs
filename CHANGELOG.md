@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.6.5 - unreleased
+## 1.6.5
 
 ### Fixed
 
